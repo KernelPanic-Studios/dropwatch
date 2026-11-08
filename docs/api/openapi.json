@@ -1026,6 +1026,116 @@
     "title": "Pins",
     "type": "object"
    },
+   "PointsChannelOut": {
+    "properties": {
+     "chests": {
+      "default": 0,
+      "title": "Chests",
+      "type": "integer"
+     },
+     "game": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Game"
+     },
+     "last_seen": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Last Seen"
+     },
+     "live": {
+      "title": "Live",
+      "type": "boolean"
+     },
+     "login": {
+      "title": "Login",
+      "type": "string"
+     },
+     "points": {
+      "default": 0,
+      "title": "Points",
+      "type": "integer"
+     },
+     "viewers": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Viewers"
+     },
+     "waiting": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Waiting"
+     },
+     "watching": {
+      "title": "Watching",
+      "type": "boolean"
+     },
+     "watching_since": {
+      "anyOf": [
+       {
+        "format": "date-time",
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Watching Since"
+     }
+    },
+    "required": [
+     "login",
+     "live",
+     "game",
+     "viewers",
+     "last_seen",
+     "watching",
+     "watching_since"
+    ],
+    "title": "PointsChannelOut",
+    "type": "object"
+   },
+   "PointsChannelsIn": {
+    "additionalProperties": false,
+    "properties": {
+     "channels": {
+      "items": {
+       "maxLength": 200,
+       "type": "string"
+      },
+      "maxItems": 200,
+      "title": "Channels",
+      "type": "array"
+     }
+    },
+    "title": "PointsChannelsIn",
+    "type": "object"
+   },
    "PointsOut": {
     "properties": {
      "chests": {
@@ -1040,6 +1150,78 @@
      }
     },
     "title": "PointsOut",
+    "type": "object"
+   },
+   "PointsPageOut": {
+    "properties": {
+     "channels": {
+      "items": {
+       "$ref": "#/components/schemas/PointsChannelOut"
+      },
+      "title": "Channels",
+      "type": "array"
+     },
+     "chests": {
+      "default": 0,
+      "title": "Chests",
+      "type": "integer"
+     },
+     "days": {
+      "title": "Days",
+      "type": "integer"
+     },
+     "on": {
+      "title": "On",
+      "type": "boolean"
+     },
+     "paused": {
+      "title": "Paused",
+      "type": "boolean"
+     },
+     "points": {
+      "default": 0,
+      "title": "Points",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "on",
+     "paused",
+     "days",
+     "channels"
+    ],
+    "title": "PointsPageOut",
+    "type": "object"
+   },
+   "PointsWatchOut": {
+    "properties": {
+     "channel": {
+      "title": "Channel",
+      "type": "string"
+     },
+     "game": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Game"
+     },
+     "since": {
+      "format": "date-time",
+      "title": "Since",
+      "type": "string"
+     }
+    },
+    "required": [
+     "channel",
+     "game",
+     "since"
+    ],
+    "title": "PointsWatchOut",
     "type": "object"
    },
    "RestoreOut": {
@@ -1347,6 +1529,17 @@
       ],
       "title": "Notify Weekly Tz"
      },
+     "points_watch": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Points Watch"
+     },
      "points_watch_streak": {
       "anyOf": [
        {
@@ -1443,6 +1636,10 @@
       "title": "Notify Weekly Tz",
       "type": "string"
      },
+     "points_watch": {
+      "title": "Points Watch",
+      "type": "boolean"
+     },
      "points_watch_streak": {
       "title": "Points Watch Streak",
       "type": "boolean"
@@ -1471,7 +1668,8 @@
      "notify_weekly_tz",
      "campaigns_every_minutes",
      "points_watch_streak",
-     "priority_only"
+     "priority_only",
+     "points_watch"
     ],
     "title": "SettingsOut",
     "type": "object"
@@ -1657,6 +1855,14 @@
        }
       ],
       "title": "Paused Until"
+     },
+     "points_watching": {
+      "default": [],
+      "items": {
+       "$ref": "#/components/schemas/PointsWatchOut"
+      },
+      "title": "Points Watching",
+      "type": "array"
      },
      "priority_only": {
       "default": false,
@@ -2455,6 +2661,101 @@
      }
     },
     "summary": "Put Pins"
+   }
+  },
+  "/api/points": {
+   "get": {
+    "description": "The Channel points page: the list, who is live and watched, and what each one earned.",
+    "operationId": "get_points_api_points_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "days",
+      "required": false,
+      "schema": {
+       "default": 30,
+       "maximum": 365,
+       "minimum": 1,
+       "title": "Days",
+       "type": "integer"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PointsPageOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Get Points"
+   }
+  },
+  "/api/points/channels": {
+   "put": {
+    "operationId": "put_points_channels_api_points_channels_put",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "days",
+      "required": false,
+      "schema": {
+       "default": 30,
+       "maximum": 365,
+       "minimum": 1,
+       "title": "Days",
+       "type": "integer"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PointsChannelsIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/PointsPageOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Put Points Channels"
    }
   },
   "/api/refresh": {

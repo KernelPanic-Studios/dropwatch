@@ -10,6 +10,7 @@ import { Icon, IconSprite, Mark, type IconName } from "./ui/Icons";
 import { ActivityView } from "./views/Activity";
 import { HistoryView } from "./views/History";
 import { OverviewView } from "./views/Overview";
+import { PointsView } from "./views/Points";
 import { PrioritiesView } from "./views/Priorities";
 import { SettingsView } from "./views/Settings";
 import { clock } from "./ui/format";
@@ -26,7 +27,7 @@ export function App({ retryMs }: { retryMs?: number } = {}) {
 }
 
 const TABS: [Exclude<View, "connect">, string, IconName][] = [
-  ["overview", "Overview", "home"], ["priorities", "Priorities", "list"], ["history", "History", "clock"], ["activity", "Activity", "pulse"], ["settings", "Settings", "gear"],
+  ["overview", "Overview", "home"], ["priorities", "Priorities", "list"], ["points", "Points", "coin"], ["history", "History", "clock"], ["activity", "Activity", "pulse"], ["settings", "Settings", "gear"],
 ];
 
 /** The status pill: what the miner is doing, never contradicting the banner below it. */
@@ -100,7 +101,7 @@ export function UpdateNotice() {
 }
 
 const VIEW_TITLES: Record<string, string> = {
-  overview: "Overview", priorities: "Priorities", history: "History", activity: "Activity", settings: "Settings",
+  overview: "Overview", priorities: "Priorities", points: "Channel points", history: "History", activity: "Activity", settings: "Settings",
 };
 
 function Shell() {
@@ -121,7 +122,7 @@ function Shell() {
   else if (view === "connect") body = <ConnectScreen />;
   else {
     tabs = true;
-    body = view === "priorities" ? <PrioritiesView /> : view === "history" ? <HistoryView /> : view === "activity" ? <ActivityView />
+    body = view === "priorities" ? <PrioritiesView /> : view === "points" ? <PointsView /> : view === "history" ? <HistoryView /> : view === "activity" ? <ActivityView />
       : view === "settings" ? <SettingsView /> : <OverviewView />;
   }
   return (

@@ -29,7 +29,7 @@ export function state(over: Partial<State> = {}): State {
     needs_you: [campaign({ id: "n1", name: "Extended Operations", game: "007 First Light", linked: false })],
     up_next: [campaign({ id: "u1", name: "Crimson Eye 2026", game: "Phasmophobia", minutes_needed: 111 })],
     done: [], catalog: null, last_switch: null, next_check_at: null, never: [], needs_ignored: [], first_in_line: [], build: "",
-    priority_only: false, outside: [],
+    priority_only: false, outside: [], points_watching: [],
     ...over,
   };
 }

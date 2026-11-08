@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS session (
 CREATE TABLE IF NOT EXISTS priority (position INTEGER PRIMARY KEY, game_name TEXT NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS never (game_name TEXT PRIMARY KEY);
 CREATE TABLE IF NOT EXISTS favourites (position INTEGER PRIMARY KEY, channel_login TEXT NOT NULL UNIQUE);
+-- Channel points (2026-11-08): streamers watched whenever they're live, for their points, apart from drops
+CREATE TABLE IF NOT EXISTS points_channels (position INTEGER PRIMARY KEY, channel_login TEXT NOT NULL UNIQUE);
 CREATE TABLE IF NOT EXISTS events (at TEXT NOT NULL, kind TEXT NOT NULL, data TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS claims (at TEXT NOT NULL, campaign_id TEXT NOT NULL, campaign TEXT NOT NULL,
   game TEXT NOT NULL, rewards TEXT NOT NULL);
@@ -69,6 +71,7 @@ SETTINGS: dict[str, type] = {
     "campaigns_every_minutes": int,  # how often the campaign list (and link status) is re-read from Twitch
     "points_watch_streak": bool,  # watch a favourite's new stream a few minutes first, for its watch streak
     "priority_only": bool,  # mine only games in Priority; everything else waits (2026-10-12)
+    "points_watch": bool,  # watch the Channel points list's streamers while they're live (2026-11-08)
 }
 SETTING_DEFAULTS = {"mine_badges": False, "claim_points": True,
                     "notify_signin": True, "notify_unreachable": True, "notify_not_earning": True,
@@ -76,7 +79,8 @@ SETTING_DEFAULTS = {"mine_badges": False, "claim_points": True,
                     "notify_unreachable_minutes": 15, "notify_not_earning_minutes": 30,
                     "arrange_up_next": False, "notify_claimed": False, "notify_weekly": False,
                     "notify_weekly_day": 6, "notify_weekly_hour": 18, "notify_weekly_tz": "",
-                    "campaigns_every_minutes": 60, "points_watch_streak": True, "priority_only": False}
+                    "campaigns_every_minutes": 60, "points_watch_streak": True, "priority_only": False,
+                    "points_watch": True}
 _ph = PasswordHasher()
 
 
@@ -135,7 +139,19 @@ class Store:
         )
         s = self.get_settings()
         return Prefs(pr, nv, fv, s["mine_badges"], tuple(self.get_pins()) if s["arrange_up_next"] else (),
-                     frozenset(self.get_ignored()), s["priority_only"])
+                     frozenset(self.get_ignored()), s["priority_only"],
+                     self.get_points_channels() if s["points_watch"] else ())
+
+    # --- Channel points list (ordered logins), kept while points watching is switched off
+    def get_points_channels(self) -> tuple[str, ...]:
+        return tuple(r[0] for r in self._db.execute(
+            "SELECT channel_login FROM points_channels ORDER BY position"))
+
+    def set_points_channels(self, logins: Sequence[str]) -> None:
+        pc = list(dict.fromkeys(lg.strip().lower() for lg in logins if lg.strip()))
+        with self._db:
+            self._db.execute("DELETE FROM points_channels")
+            self._db.executemany("INSERT INTO points_channels VALUES (?, ?)", enumerate(pc))
 
     # --- Up next pins (campaign ids, in order); kept while "Arrange myself" is off
     def get_pins(self) -> list[str]:
@@ -459,6 +475,14 @@ class Store:
                                "FROM points_log WHERE at >= ?",
                                (since.astimezone(UTC).isoformat(),)).fetchone()
         return {"points": int(row[0]), "chests": int(row[1])}
+
+    def points_by_channel(self, since: datetime) -> dict[str, dict]:
+        """login -> {"points", "chests"} gained since then (the Channel points page's per-streamer totals)."""
+        rows = self._db.execute("SELECT channel, COALESCE(SUM(points), 0), "
+                                "COALESCE(SUM(reason = 'CLAIM'), 0) FROM points_log "
+                                "WHERE at >= ? AND channel IS NOT NULL GROUP BY channel",
+                                (since.astimezone(UTC).isoformat(),))
+        return {lg: {"points": int(p), "chests": int(c)} for lg, p, c in rows}
 
     # --- channels seen live (favourites suggestions; spec §8 /api/suggestions)
     def record_seen(self, channels: list[tuple[str, str]], at: datetime) -> None:

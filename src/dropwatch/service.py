@@ -8,7 +8,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
 from .events import EventBus
-from .runner import Runner, State
+from .runner import POINTS_SLOTS, Runner, State
 
 log = logging.getLogger("dropwatch.service")
 
@@ -35,7 +35,9 @@ def build_parts(store, session, emit) -> Parts:
     gql = Gql(transport, lambda: session)
     runner = Runner(TwitchClient(gql, session.user_id, catalog=catalog),
                     Watcher(transport, lambda: session, gql), pubsub, store,
-                    user_id=session.user_id, emit=emit)
+                    user_id=session.user_id, emit=emit,
+                    # Channel points: up to two streams watched alongside drops, each with its own playback
+                    points_watchers=[Watcher(transport, lambda: session, gql) for _ in range(POINTS_SLOTS)])
 
     async def close() -> None:
         await pubsub.close()

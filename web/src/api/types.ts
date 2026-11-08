@@ -351,6 +351,43 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/points": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Points
+         * @description The Channel points page: the list, who is live and watched, and what each one earned.
+         */
+        get: operations["get_points_api_points_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/points/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Put Points Channels */
+        put: operations["put_points_channels_api_points_channels_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/refresh": {
         parameters: {
             query?: never;
@@ -962,6 +999,40 @@ export interface components {
             /** Pins */
             pins?: string[];
         };
+        /** PointsChannelOut */
+        PointsChannelOut: {
+            /**
+             * Chests
+             * @default 0
+             */
+            chests: number;
+            /** Game */
+            game: string | null;
+            /** Last Seen */
+            last_seen: string | null;
+            /** Live */
+            live: boolean;
+            /** Login */
+            login: string;
+            /**
+             * Points
+             * @default 0
+             */
+            points: number;
+            /** Viewers */
+            viewers: number | null;
+            /** Waiting */
+            waiting?: string | null;
+            /** Watching */
+            watching: boolean;
+            /** Watching Since */
+            watching_since: string | null;
+        };
+        /** PointsChannelsIn */
+        PointsChannelsIn: {
+            /** Channels */
+            channels?: string[];
+        };
         /** PointsOut */
         PointsOut: {
             /**
@@ -974,6 +1045,39 @@ export interface components {
              * @default 0
              */
             points: number;
+        };
+        /** PointsPageOut */
+        PointsPageOut: {
+            /** Channels */
+            channels: components["schemas"]["PointsChannelOut"][];
+            /**
+             * Chests
+             * @default 0
+             */
+            chests: number;
+            /** Days */
+            days: number;
+            /** On */
+            on: boolean;
+            /** Paused */
+            paused: boolean;
+            /**
+             * Points
+             * @default 0
+             */
+            points: number;
+        };
+        /** PointsWatchOut */
+        PointsWatchOut: {
+            /** Channel */
+            channel: string;
+            /** Game */
+            game: string | null;
+            /**
+             * Since
+             * Format: date-time
+             */
+            since: string;
         };
         /** RestoreOut */
         RestoreOut: {
@@ -1041,6 +1145,8 @@ export interface components {
             notify_weekly_hour?: number | null;
             /** Notify Weekly Tz */
             notify_weekly_tz?: string | null;
+            /** Points Watch */
+            points_watch?: boolean | null;
             /** Points Watch Streak */
             points_watch_streak?: boolean | null;
             /** Priority Only */
@@ -1082,6 +1188,8 @@ export interface components {
             notify_weekly_hour: number;
             /** Notify Weekly Tz */
             notify_weekly_tz: string;
+            /** Points Watch */
+            points_watch: boolean;
             /** Points Watch Streak */
             points_watch_streak: boolean;
             /** Priority Only */
@@ -1145,6 +1253,11 @@ export interface components {
             outside: components["schemas"]["CampaignOut"][];
             /** Paused Until */
             paused_until: string | null;
+            /**
+             * Points Watching
+             * @default []
+             */
+            points_watching: components["schemas"]["PointsWatchOut"][];
             /**
              * Priority Only
              * @default false
@@ -1798,6 +1911,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Pins"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_points_api_points_get: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointsPageOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_points_channels_api_points_channels_put: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PointsChannelsIn"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PointsPageOut"];
                 };
             };
             /** @description Validation Error */

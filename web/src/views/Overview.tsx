@@ -66,6 +66,7 @@ export function OverviewView() {
       <h1 className="sr" id="h-overview" tabIndex={-1}>Overview</h1>
       <Banner state={state} lost={lost} lostSince={lostSince} />
       {phone ? [needs, now] : [now, needs]}
+      <PointsNote state={state} />
       <UpNext state={state} priorityOf={priorityOf} onNever={never} onPriority={prioritise} />
       <Done state={state} />
     </section>
@@ -83,6 +84,18 @@ function useNarrow() {
     return () => mq.removeEventListener("change", on);
   }, []);
   return m;
+}
+
+/** Channel points: who is watched alongside drops right now (the Channel points page has the rest). */
+export function PointsNote({ state }: { state: State }) {
+  const w = state.points_watching ?? [];
+  if (!w.length) return null;
+  return (
+    <p className="points-note" role="status"><Icon name="coin" />
+      <span>{state.current ? "Also watching" : "Watching"} {w.map((p, i) => <span key={p.channel}>{i ? " and " : ""}<b>{p.channel}</b></span>)} for channel points.{" "}
+        <a href="#points">Channel points</a></span>
+    </p>
+  );
 }
 
 /* ---------- banner (one at a time, most serious first) ---------- */

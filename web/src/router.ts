@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 
-export const VIEWS = ["overview", "priorities", "history", "activity", "settings"] as const;
+export const VIEWS = ["overview", "priorities", "points", "history", "activity", "settings"] as const;
 export type View = (typeof VIEWS)[number] | "connect";
 const TITLES: Record<View, string> = {
-  overview: "Overview", priorities: "Priorities", history: "History", activity: "Activity", settings: "Settings", connect: "Sign in to Twitch",
+  overview: "Overview", priorities: "Priorities", points: "Channel points", history: "History", activity: "Activity", settings: "Settings", connect: "Sign in to Twitch",
 };
 
 export function parseView(hash: string): View {

@@ -40,7 +40,10 @@ from .models import (
     NotifyTestOut,
     PauseIn,
     Pins,
+    PointsChannelOut,
+    PointsChannelsIn,
     PointsOut,
+    PointsPageOut,
     RestoreOut,
     SessionOut,
     SessionsOut,
@@ -114,12 +117,14 @@ async def get_suggestions(request: Request) -> SuggestionsOut:
     out = [ChannelSuggestion(login=lg, live=True, game=g, last_seen=seen.get(lg, {}).get("last_seen"))
            for lg, g in sorted(live.items())]
     favs = ctx.store.get_prefs().favourites
+    named = dict.fromkeys((*favs, *ctx.store.get_points_channels()))  # added by name, maybe never seen
     offline = [lg for lg in seen if lg not in live]  # newest first
-    keep = set(offline[:SEEN_SUGGESTIONS]) | set(favs)  # a long tail of offline channels isn't useful
+    keep = set(offline[:SEEN_SUGGESTIONS]) | set(named)  # a long tail of offline channels isn't useful
     out += [ChannelSuggestion(login=lg, live=False, game=seen[lg]["game"] or None,
                               last_seen=seen[lg]["last_seen"]) for lg in offline if lg in keep]
     known = {c.login for c in out}
-    out += [ChannelSuggestion(login=f, live=False, game=None, last_seen=None) for f in favs if f not in known]
+    out += [ChannelSuggestion(login=f, live=False, game=None, last_seen=None) for f in named
+            if f not in known]
     return SuggestionsOut(games=games, channels=out)
 
 
@@ -137,6 +142,8 @@ ACTIVITY_FIELDS = {
     "notified": ("title", "sent", "failed"),
     "checked": ("manual", "campaigns", "new", "linked", "seconds"),
     "points_earned": ("channel", "reason", "points"),
+    "points_watch": ("channel", "on", "game"),
+    "points_dropped": ("channel",),
 }
 
 
@@ -231,7 +238,8 @@ async def get_settings(request: Request) -> SettingsOut:
 
 
 # settings the planner reads (store.get_prefs): changing one re-plans at once
-PLANNER_SETTINGS = {"arrange_up_next", "mine_badges", "claim_points", "points_watch_streak", "priority_only"}
+PLANNER_SETTINGS = {"arrange_up_next", "mine_badges", "claim_points", "points_watch_streak", "priority_only",
+                    "points_watch"}
 
 
 @api.put("/settings", response_model=SettingsOut)
@@ -241,7 +249,10 @@ async def put_settings(body: SettingsIn, request: Request) -> SettingsOut:
     out = SettingsOut(**ctx.store.put_settings(values))
     # settings the planner reads take effect now, not at the next 5-minute refresh
     if values.keys() & PLANNER_SETTINGS and ctx.service.runner is not None:
-        await ctx.service.runner.replan()
+        if values.get("points_watch"):  # the list's streamers weren't looked up while it was off
+            await ctx.service.runner.refresh()
+        else:
+            await ctx.service.runner.replan()
     return out
 
 
@@ -387,7 +398,54 @@ async def pause(body: PauseIn, request: Request) -> None:
 
 @api.post("/resume", status_code=204)
 async def resume(request: Request) -> None:
-    _runner(_c(request)).resume()
+    r = _runner(_c(request))
+    r.resume()
+    await r.replan()  # points watching starts again now, not at the next refresh
+
+
+def _points_page(ctx, days: int) -> PointsPageOut:
+    r = ctx.service.runner
+    now = ctx.clock()
+    on = bool(ctx.store.get_settings()["points_watch"])
+    live = {ch.login: ch for ch in r.live} if r else {}
+    seen = {row["login"]: row for row in ctx.store.seen_channels(now)}
+    totals = ctx.store.points_by_channel(now - timedelta(days=days))
+    watching = {ch.login for ch in r.points_watching} if r else set()
+    since = r.points_since if r else {}
+    waiting = r.points_waiting if r else {}
+    channels = []
+    for lg in ctx.store.get_points_channels():
+        ch, row, t = live.get(lg), seen.get(lg, {}), totals.get(lg, {})
+        channels.append(PointsChannelOut(
+            login=lg, live=ch is not None, game=(ch.game_name if ch else row.get("game")) or None,
+            viewers=ch.viewers if ch else None, last_seen=row.get("last_seen"),
+            watching=lg in watching, watching_since=since.get(lg) if lg in watching else None,
+            waiting=waiting.get(lg) if on and ch is not None else None,
+            points=t.get("points", 0), chests=t.get("chests", 0)))
+    sums = ctx.store.points_since(now - timedelta(days=days))
+    return PointsPageOut(on=on, paused=bool(r and r.state == State.PAUSED), days=days, channels=channels,
+                         points=sums["points"], chests=sums["chests"])
+
+
+@api.get("/points", response_model=PointsPageOut)
+async def get_points(request: Request, days: int = Query(30, ge=1, le=365)) -> PointsPageOut:
+    """The Channel points page: the list, who is live and watched, and what each one earned."""
+    return _points_page(_c(request), days)
+
+
+@api.put("/points/channels", response_model=PointsPageOut)
+async def put_points_channels(body: PointsChannelsIn, request: Request,
+                              days: int = Query(30, ge=1, le=365)) -> PointsPageOut:
+    ctx = _c(request)
+    before = set(ctx.store.get_points_channels())
+    ctx.store.set_points_channels(body.channels)
+    r = ctx.service.runner
+    if r is not None and r.state != State.SIGNED_OUT:
+        if set(ctx.store.get_points_channels()) - before:
+            await r.refresh()  # a newly added streamer may be live already: look now
+        else:
+            await r.replan()
+    return _points_page(ctx, days)
 
 
 @api.post("/mine-now", status_code=204)

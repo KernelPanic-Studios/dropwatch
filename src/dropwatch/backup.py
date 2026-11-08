@@ -7,7 +7,7 @@ from datetime import datetime
 
 from pydantic import ValidationError
 
-from .api.models import ListsIn, Pins, SettingsIn
+from .api.models import ListsIn, Pins, PointsChannelsIn, SettingsIn
 from .notify import CHANNELS
 from .store import SETTINGS
 from .version import VERSION
@@ -33,6 +33,7 @@ def make_backup(store, now: datetime, *, secrets: bool) -> dict:
         "dropwatch_backup": FORMAT, "version": VERSION, "made_at": now.isoformat(),
         "lists": {"priority": list(p.priority), "never": sorted(p.never), "favourites": list(p.favourites)},
         "pins": store.get_pins(),
+        "points_channels": list(store.get_points_channels()),
         "settings": store.get_settings(),
         "notify_channels": channels,
     }
@@ -51,6 +52,9 @@ def restore_backup(store, data: object) -> list[str]:
             raise BadBackup("The backup's lists aren't readable.")
         lists = ListsIn.model_validate({k: v for k, v in raw_lists.items() if k in ListsIn.model_fields})
         pins = Pins.model_validate({"pins": data.get("pins") or []})
+        # backups from before the Channel points page have none: the list here is left as it is
+        points = (PointsChannelsIn.model_validate({"channels": data["points_channels"] or []})
+                  if "points_channels" in data else None)
         raw = data.get("settings") or {}
         if not isinstance(raw, dict):
             raise BadBackup("The backup's settings aren't readable.")
@@ -86,6 +90,8 @@ def restore_backup(store, data: object) -> list[str]:
 
     store.set_lists(lists.priority, set(lists.never), lists.favourites)
     store.set_pins(pins.pins)
+    if points is not None:
+        store.set_points_channels(points.channels)
     store.put_settings(settings.model_dump(exclude_none=True))
     store.set_channels(channels)
     return skipped

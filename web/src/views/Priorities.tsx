@@ -190,7 +190,7 @@ export function PrioritiesView() {
   );
 }
 
-function Bucket({ title, count, help, children }: { title: string; count: number; help: string; children: React.ReactNode }) {
+export function Bucket({ title, count, help, children }: { title: string; count: number; help: string; children: React.ReactNode }) {
   return (
     <div className="bucket">
       <div className="bucket-h"><h2>{title}</h2><span className="count">{count}</span><p>{help}</p></div>
@@ -287,8 +287,8 @@ function RowBody({ name, zone, i, n, info, ch, onAct, rootRef, rootProps, placeh
   );
 }
 
-function AddForm({ to, list, placeholder, known, label, onAdd }: {
-  to: Zone; list: string; placeholder: string; known: string[]; label: string; onAdd: (name: string) => Promise<void> | void;
+export function AddForm({ to, list, placeholder, known, label, onAdd }: {
+  to: Zone | "points"; list: string; placeholder: string; known: string[]; label: string; onAdd: (name: string) => Promise<void> | void;
 }) {
   const [v, setV] = useState("");
   const [unknown, setUnknown] = useState<string | null>(null);
@@ -312,7 +312,7 @@ function AddForm({ to, list, placeholder, known, label, onAdd }: {
       </div>
       {unknown && (
         <div className="confirm">
-          <span>{to === "fav"
+          <span>{to === "fav" || to === "points"
             ? <>The miner hasn't seen a channel called <b>{unknown}</b> yet. Check the spelling, or add it anyway.</>
             : <>No game called <b>{unknown}</b> has a campaign right now. Check the spelling, or add it so it's ready when one starts.</>}</span>
           <span className="acts">

@@ -81,7 +81,8 @@ class TwitchClient:
         ask = [c for c in minable if c.allowed_logins
                and (c.game.special or not any(qualifies(c, ch) for ch in found))]
         acl = {lg for c in ask for lg in c.allowed_logins} - set(seen)
-        acl |= set(prefs.favourites) - set(seen)
+        # favourites, and the Channel points list, which is watched whatever they stream
+        acl |= (set(prefs.favourites) | set(prefs.points_channels)) - set(seen)
         if acl:
             for resp in await self._gql.run_many([op("GetStreamInfo", channel=lg) for lg in sorted(acl)]):
                 ch = parse.stream_channel(resp)

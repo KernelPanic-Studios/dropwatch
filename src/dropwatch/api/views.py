@@ -14,6 +14,7 @@ from .models import (
     DropOut,
     HistoryOut,
     MissedOut,
+    PointsWatchOut,
     RewardOut,
     StateOut,
     StreakVisitOut,
@@ -109,6 +110,9 @@ def state_view(runner, store, now: datetime) -> StateOut:
         first_in_line=[o.name for o in keep(plan.waiting[:2])] if plan and not plan.current else [],
         streak_visit=(StreakVisitOut(channel=v[0], until=v[1])
                       if (v := getattr(runner, "streak_visit", None)) else None),
+        points_watching=[PointsWatchOut(channel=ch.login, game=ch.game_name or None,
+                                        since=runner.points_since.get(ch.login, now))
+                         for ch in getattr(runner, "points_watching", ())],
     )
 
 

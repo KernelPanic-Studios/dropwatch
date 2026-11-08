@@ -20,6 +20,9 @@ It runs as a single Docker container, made for Unraid but fine on any Docker hos
 - **Claims rewards for you,** as soon as Twitch counts them as earned.
 - **Channel points.** Opens bonus chests on the channel being watched (and any left waiting on channels
   watched in the last week), and visits favourite channels briefly to keep their watch streaks going.
+- **Watches your favourite streamers for their points.** Put streamers on the Channel points page and Dropwatch
+  watches them whenever they're live, drops or not, so their points (and bonus chests) pile up while you're away.
+  Twitch counts two streams at once: one goes to drops while there's a campaign to mine, the rest to your list.
 - **Tells you what needs you.** Campaigns that need a game account linked are listed with a link to do it.
   Ignore one you don't care about and it stays quiet until it ends.
 - **History.** What was claimed, what was missed and why, and how many channel points were earned.

@@ -100,6 +100,9 @@ class Prefs:
     pins: tuple[str, ...] = ()  # Up next "Arrange myself": campaign ids mined first after Priority
     ignored: frozenset[str] = frozenset()  # Needs you > Ignore: campaign ids not asked about until they end
     priority_only: bool = False  # Settings > Mining: mine only games in Priority (approved 2026-10-12)
+    # Channel points page (2026-11-08): watched while live for their points, whatever drops are doing;
+    # empty while points watching is switched off
+    points_channels: tuple[str, ...] = ()
 
 
 def preconditions_met(c: Campaign, d: Drop) -> bool:
