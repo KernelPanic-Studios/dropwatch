@@ -81,13 +81,24 @@ class TwitchClient:
         ask = [c for c in minable if c.allowed_logins
                and (c.game.special or not any(qualifies(c, ch) for ch in found))]
         acl = {lg for c in ask for lg in c.allowed_logins} - set(seen)
-        acl |= set(prefs.favourites) - set(seen)
+        # favourites, and the Channel points list, which is watched whatever they stream
+        acl |= (set(prefs.favourites) | set(prefs.points_channels)) - set(seen)
         if acl:
             for resp in await self._gql.run_many([op("GetStreamInfo", channel=lg) for lg in sorted(acl)]):
                 ch = parse.stream_channel(resp)
                 if ch is not None:
                     seen.setdefault(ch.login, ch)
         return list(seen.values())
+
+    async def lookup_channel(self, login: str) -> dict | None:
+        """A channel by login, live or not (the add boxes' check); None when Twitch has no such user."""
+        resp = await self._gql.run(op("GetStreamInfo", channel=login))
+        user = (resp.get("data") or {}).get("user") if isinstance(resp, dict) else None
+        if not user or not user.get("login"):
+            return None
+        game = (user.get("broadcastSettings") or {}).get("game") or {}
+        return {"login": user["login"].lower(), "display_name": user.get("displayName") or user["login"],
+                "live": bool(user.get("stream")), "game": game.get("displayName") or game.get("name") or None}
 
     async def claim(self, claim_id: str) -> bool:
         try:

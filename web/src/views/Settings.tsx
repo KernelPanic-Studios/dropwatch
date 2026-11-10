@@ -104,7 +104,7 @@ export function SettingsView() {
             <Set title="Channel points">
               <div className="opt">
                 <div><label htmlFor="m-points">Also claim channel points</label>
-                  <div className="d">Opens the bonus chest on the channel being watched, and any left waiting on channels watched in the last week.</div></div>
+                  <div className="d">Opens the bonus chest on the channel being watched, and any left waiting on channels watched in the last week. To earn points on streamers you like whether or not they have drops, add them on <a href="#points">Channel points</a>.</div></div>
                 <input type="checkbox" className="sw" id="m-points" disabled={!settings} checked={!!settings?.claim_points}
                   onChange={(e) => void put({ claim_points: e.target.checked })} />
               </div>

@@ -138,7 +138,9 @@ export function PrioritiesView() {
   const info = gameInfo(state);
   const chan = new Map(sugg.channels.map((c) => [c.login, c]));
   const pool = sugg.games.filter((g) => !lists.priority.includes(g) && !lists.never.includes(g));
-  const knownCh = sugg.channels.filter((c) => !lists.favourites.includes(c.login));
+  const gameOpts = pool.map((g) => ({ value: g }));
+  const chanOpts = sugg.channels.filter((c) => !lists.favourites.includes(c.login))
+    .map((c) => ({ value: c.login, label: channelNote(c) }));
 
   const zone = (z: Zone) => {
     const list = shown[KEY[z]];
@@ -159,24 +161,22 @@ export function PrioritiesView() {
     <section className="view" id="v-priorities" aria-labelledby="h-priorities">
       <div className="view-h"><h1 id="h-priorities" className="disp" tabIndex={-1}>Priorities</h1></div>
       <p className="lead">Every game with a drop campaign gets mined. Games in Priority go first, in your order. Games not listed here are mined after them, most urgent first. Overview shows the full order under Up next.</p>
-      <datalist id="campaign-games">{pool.map((g) => <option key={g} value={g} />)}</datalist>
-      <datalist id="known-channels">{knownCh.map((c) => <option key={c.login} value={c.login} label={channelNote(c)} />)}</datalist>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver}
         onDragEnd={onDragEnd} onDragCancel={() => { setActive(null); setDraft(null); }}>
       <Bucket title="Priority" count={shown.priority.length} help="Mined first, top to bottom.">
         {zone("priority")}
-        <AddForm to="priority" list="campaign-games" placeholder="Add a game" known={sugg.games} label="Add a game to Priority"
+        <AddForm to="priority" options={gameOpts} placeholder="Add a game" known={sugg.games} label="Add a game to Priority"
           onAdd={(name) => commit(moved(name, "priority"), `${name} added to Priority`)} />
       </Bucket>
       <Bucket title="Favourite channels" count={shown.favourites.length}
         help="When a campaign can be mined on several live channels, these get watched first, top to bottom. Your game order above still decides which campaign.">
         {zone("fav")}
-        <AddForm to="fav" list="known-channels" placeholder="Add a channel" known={sugg.channels.map((c) => c.login)} label="Add a favourite channel"
+        <AddForm to="fav" options={chanOpts} placeholder="Add a channel" known={sugg.channels.map((c) => c.login)} label="Add a favourite channel"
           onAdd={(name) => commit(moved(name.toLowerCase(), "fav"), `${name} added to favourite channels`)} />
       </Bucket>
       <Bucket title="Never" count={shown.never.length} help="Never mined, even when nothing else is live.">
         {zone("never")}
-        <AddForm to="never" list="campaign-games" placeholder="Add a game" known={sugg.games} label="Add a game to Never"
+        <AddForm to="never" options={gameOpts} placeholder="Add a game" known={sugg.games} label="Add a game to Never"
           onAdd={(name) => commit(moved(name, "never"), `${name} added to Never`)} />
       </Bucket>
       <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(.2,.8,.2,1)" }}>
@@ -190,7 +190,7 @@ export function PrioritiesView() {
   );
 }
 
-function Bucket({ title, count, help, children }: { title: string; count: number; help: string; children: React.ReactNode }) {
+export function Bucket({ title, count, help, children }: { title: string; count: number; help: string; children: React.ReactNode }) {
   return (
     <div className="bucket">
       <div className="bucket-h"><h2>{title}</h2><span className="count">{count}</span><p>{help}</p></div>
@@ -287,36 +287,109 @@ function RowBody({ name, zone, i, n, info, ch, onAct, rootRef, rootProps, placeh
   );
 }
 
-function AddForm({ to, list, placeholder, known, label, onAdd }: {
-  to: Zone; list: string; placeholder: string; known: string[]; label: string; onAdd: (name: string) => Promise<void> | void;
+export const MIN_TYPED = 3;  // suggestions start after this many letters
+const MAX_SUGGESTED = 8;
+
+/** The add box's suggestions: none until MIN_TYPED letters are typed, then the best few matches. A whole
+ * match first, then names starting with it, then a word inside the name starting with it ("speed" finds
+ * "sam_speedruns"), then anywhere in it; shorter names first within each. */
+export function bestMatches<T extends { value: string }>(options: T[], typed: string, max = MAX_SUGGESTED): T[] {
+  const q = typed.trim().toLowerCase();
+  if (q.length < MIN_TYPED) return [];
+  const rank = (name: string) => {
+    const n = name.toLowerCase();
+    if (n === q) return 0;
+    if (n.startsWith(q)) return 1;
+    if (n.split(/[\s_\-:.]+/).some((w) => w.startsWith(q))) return 2;
+    return n.includes(q) ? 3 : -1;
+  };
+  return options.map((o) => [rank(o.value), o] as const).filter(([r]) => r >= 0)
+    .sort(([ra, a], [rb, b]) => ra - rb || a.value.length - b.value.length || a.value.localeCompare(b.value))
+    .slice(0, max).map(([, o]) => o);
+}
+
+/** What was typed in a channel box, as a Twitch login: a name ("@Quibble_Bibble") or a channel link
+ * ("https://www.twitch.tv/quibble_bibble/videos?x=1", "m.twitch.tv/…"). Null when it can't be one. */
+export function channelLogin(text: string): string | null {
+  let t = text.trim().replace(/^@/, "");
+  const link = t.match(/^(?:https?:\/\/)?(?:www\.|m\.|go\.)?twitch\.tv\/([^/?#\s]+)/i);
+  if (link) t = link[1]!;
+  return /^[A-Za-z0-9_]{1,25}$/.test(t) ? t.toLowerCase() : null;
+}
+
+type Lookup = { login: string; found: boolean; display_name?: string | null; live?: boolean; game?: string | null };
+type Check = { login: string } & ({ status: "checking" } | { status: "done"; got: Lookup } | { status: "error" } | { status: "bad" });
+
+export function AddForm({ to, options, placeholder, known, label, onAdd }: {
+  to: Zone | "points"; options: { value: string; label?: string }[]; placeholder: string; known: string[]; label: string; onAdd: (name: string) => Promise<void> | void;
 }) {
+  const channels = to === "fav" || to === "points";
   const [v, setV] = useState("");
   const [unknown, setUnknown] = useState<string | null>(null);
+  const [check, setCheck] = useState<Check | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const asking = useRef<{ login: string; p: Promise<Check> } | null>(null);  // blur and Add share one request
+
+  /** Channel boxes: ask Twitch whether the name exists (on blur, and before adding a name not seen yet). */
+  async function lookUp(raw: string): Promise<Check | null> {
+    if (!raw.trim()) { setCheck(null); return null; }
+    const login = channelLogin(raw);
+    if (!login) { const c: Check = { login: raw.trim(), status: "bad" }; setCheck(c); return c; }
+    if (login !== raw.trim()) setV(login);  // a pasted link becomes the name it points at
+    if (asking.current?.login === login) return asking.current.p;
+    setCheck({ login, status: "checking" });
+    const p = api.get<Lookup>(`/channels/lookup?login=${encodeURIComponent(login)}`)
+      .then((got): Check => ({ login, status: "done", got }), (): Check => ({ login, status: "error" }));
+    asking.current = { login, p };
+    const c = await p;
+    if (c.status === "error" && asking.current?.p === p) asking.current = null;  // try again next time
+    setCheck((now) => (now && now.login === login ? c : now));
+    return c;
+  }
+  async function add(name: string) {
+    setV(""); setUnknown(null); setCheck(null); asking.current = null;
+    await onAdd(name);
+    input.current?.focus();
+  }
   async function submit(e: FormEvent) {
     e.preventDefault();
     const val = v.trim();
     if (!val) return;
-    const match = known.find((n) => n.toLowerCase() === val.toLowerCase());
-    if (!match) { setUnknown(val); return; }
-    setV(""); setUnknown(null);
-    await onAdd(match);
-    input.current?.focus();
+    const name = channels ? channelLogin(val) : val;
+    const match = name && known.find((n) => n.toLowerCase() === name.toLowerCase());
+    if (match) { await add(match); return; }
+    if (!channels) { setUnknown(val); return; }
+    const c = await lookUp(val);
+    if (c?.status === "done" && c.got.found) await add(c.got.login);
+    else if (c?.status === "error") setUnknown(c.login);  // couldn't ask Twitch: the old question
   }
+  const note = channels && check && (
+    check.status === "checking" ? <div className="add-note">Checking Twitch for <b>{check.login}</b>…</div>
+      : check.status === "bad" ? <div className="add-note warn">That isn't a Twitch name or channel link.</div>
+      : check.status === "done" && check.got.found ? (
+        <div className="add-note ok"><Icon name="check" /><span><b>{check.got.display_name ?? check.got.login}</b> is on Twitch
+          {check.got.live ? <> · <span className="on">Live now{check.got.game ? ` · ${check.got.game}` : ""}</span></> : " · Offline"}</span></div>)
+      : check.status === "done" ? <div className="add-note warn">Twitch has no channel called <b>{check.login}</b>. Check the spelling.</div>
+      : null);
   return (
     <form className="add" data-to={to} noValidate onSubmit={submit}>
+      <datalist id={`opts-${to}`}>
+        {bestMatches(options, v).map((o) => <option key={o.value} value={o.value} label={o.label} />)}
+      </datalist>
       <div className="add-row">
-        <input ref={input} id={`add-${to}`} type="text" list={list} placeholder={placeholder} aria-label={label} autoComplete="off"
-          value={v} onChange={(e) => setV(e.target.value)} />
+        <input ref={input} id={`add-${to}`} type="text" list={`opts-${to}`} placeholder={placeholder} aria-label={label} autoComplete="off"
+          value={v} onChange={(e) => { setV(e.target.value); if (check) setCheck(null); setUnknown(null); }}
+          onBlur={channels ? () => void lookUp(v) : undefined} />
         <button className="btn" type="submit">Add</button>
       </div>
+      <div className="add-live" aria-live="polite">{note}</div>
       {unknown && (
         <div className="confirm">
-          <span>{to === "fav"
-            ? <>The miner hasn't seen a channel called <b>{unknown}</b> yet. Check the spelling, or add it anyway.</>
+          <span>{channels
+            ? <>Couldn't check <b>{unknown}</b> with Twitch just now. Check the spelling, or add it anyway.</>
             : <>No game called <b>{unknown}</b> has a campaign right now. Check the spelling, or add it so it's ready when one starts.</>}</span>
           <span className="acts">
-            <button className="btn" type="button" onClick={async () => { const n = unknown; setV(""); setUnknown(null); await onAdd(n); input.current?.focus(); }}>Add anyway</button>
+            <button className="btn" type="button" onClick={() => void add(unknown)}>Add anyway</button>
             <button className="btn quiet" type="button" onClick={() => { setUnknown(null); input.current?.focus(); }}>Cancel</button>
           </span>
         </div>

@@ -4,13 +4,23 @@ waiting since Oct 9)."""
 import json
 from datetime import UTC, datetime, timedelta
 
-from test_runner import FakeClient, FakePubSub, FakeWatcher, camp, chan
+import test_runner
+from test_runner import FakeClient, FakePubSub, FakeWatcher, chan
 
 from dropwatch.runner import RECENT_CHEST_CHANNELS, Runner
 from dropwatch.store import Store
 
 # relative to the real clock: the store prunes events older than 7 days by real time (review fix)
 NOW = datetime.now(UTC).replace(microsecond=0)
+
+
+def camp():
+    """test_runner's campaign, moved to run around the real clock like everything else here."""
+    from dataclasses import replace
+
+    c, shift = test_runner.camp(), NOW - test_runner.NOW
+    drops = tuple(replace(d, starts_at=d.starts_at + shift, ends_at=d.ends_at + shift) for d in c.drops)
+    return replace(c, starts_at=c.starts_at + shift, ends_at=c.ends_at + shift, drops=drops)
 
 
 class ChestClient(FakeClient):

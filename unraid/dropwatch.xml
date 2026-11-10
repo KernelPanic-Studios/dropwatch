@@ -21,6 +21,11 @@
 **Getting started**
 Open the WebUI, choose a page password, then sign in to Twitch with a one-time code. One Twitch account per container.</Overview>
   <Changes>
+### 0.3.0 (2026-11-10)
+- New: Channel points. Add streamers on the new Points tab and Dropwatch watches them whenever they're live, drops or not, so their points and bonus chests pile up while you're away. Twitch counts two streams at once: one goes to drops while there's a campaign to mine, the rest to your list, top first.
+- The Points tab shows who's being watched, who's waiting for a free stream, and what each streamer earned in the last 30 days. Drag streamers to reorder them.
+- Add boxes take a full twitch.tv link as well as a name, check the channel with Twitch when you leave the box, and suggest the closest matches once you've typed 3 letters.
+
 ### 0.2.0 (2026-10-12)
 - New: Priority-only mining. Turn it on in Settings › Mining to mine only the games in your Priority list; everything else waits until you switch it off.
 - Overview tells you when there's nothing to mine in your Priority games, and folds the other campaigns into one line you can open.

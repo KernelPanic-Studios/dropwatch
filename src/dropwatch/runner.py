@@ -15,7 +15,7 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -53,6 +53,9 @@ CHEST_LOOKBACK = timedelta(days=7)  # channels watched this recently are checked
 RECENT_CHEST_CHANNELS = 30  # at most this many of them per refresh (one or two batched requests)
 STREAK_VISIT = timedelta(minutes=7)  # a favourite's new stream is watched this long for its watch streak
 STREAK_REMEMBER = 200  # visited broadcast ids kept across restarts
+# Channel points page (asked for 2026-11-08): Twitch counts watch time on two streams at once, so up to two of
+# the list's live streamers are watched for their points, one fewer while a drop channel is being watched
+POINTS_SLOTS = 2
 CLAIM_WAIT = timedelta(hours=1)  # force campaign re-fetches this long; the hourly fetch covers the rest
 BACKOFF_START, BACKOFF_MAX = 60.0, 600.0
 HEALTH_STALL = timedelta(minutes=15)  # no tick for this long = stuck (longer than any back-off sleep)
@@ -78,8 +81,16 @@ class State(StrEnum):
 class Runner:
     def __init__(self, client, watcher, pubsub, store, *, user_id: int,
                  clock: Callable[[], datetime] = lambda: datetime.now(UTC),
-                 emit: Callable[[str, dict], None] = lambda k, d: None):
+                 emit: Callable[[str, dict], None] = lambda k, d: None,
+                 points_watchers: Sequence = ()):
         self._client, self._watcher, self._pubsub, self._store = client, watcher, pubsub, store
+        # Channel points: one watcher per stream watched for points (each keeps its own playback state)
+        self._points_watchers = list(points_watchers)[:POINTS_SLOTS]
+        self.points_watching: list[LiveChannel] = []
+        self.points_since: dict[str, datetime] = {}  # login -> watched without a break since
+        self.points_waiting: dict[str, str] = {}  # live but not watched for points: login -> "drops" | "full"
+        self._points_slot: dict[str, object] = {}  # login -> its watcher
+        self._points_fails: dict[str, int] = {}
         self._user_id, self._clock, self._emit = user_id, clock, emit
         self.state: State = State.IDLE
         self.plan: Plan | None = None
@@ -135,6 +146,7 @@ class Runner:
     # --- commands
     def pause(self, until: datetime | None) -> None:
         self._paused, self.paused_until = True, until
+        self._set_points([], self._clock())  # nothing is watched while paused, points included
         self._set_state(State.PAUSED, {"until": until.isoformat() if until else None})
 
     def resume(self) -> None:
@@ -147,6 +159,10 @@ class Runner:
         self.maybe_unlinked.pop(campaign_id, None)
         self._link_probe.pop(campaign_id, None)
         self._end_streak_visit()
+
+    async def lookup_channel(self, login: str) -> dict | None:
+        """The add boxes' check of a channel name (no state is changed)."""
+        return await self._client.lookup_channel(login)
 
     def use_channel(self, login: str) -> None:
         self._override_channel = login
@@ -298,11 +314,15 @@ class Runner:
         elif self.watching and cur:
             for cid in (cur.campaign_id, *self.plan.also_credited):
                 self._mined_on[cid] = self.watching.login
+        if self._paused:
+            self.points_waiting = {}
+        self._set_points([] if self._paused else self._choose_points(usable, prefs), now)
         topics = {topic("user_drops", self._user_id), topic("user_notifications", self._user_id)}
-        if self._points_on():
+        if self._points_on() or self.points_watching:  # points-earned also feeds the page's totals
             topics.add(topic("user_points", self._user_id))
         if self.watching:
             topics |= {topic("stream_state", self.watching.id), topic("stream_update", self.watching.id)}
+        topics |= {topic("stream_state", ch.id) for ch in self.points_watching}
         self._pubsub.set_topics(topics)
         if not self._paused:
             if self.watching is None:
@@ -317,6 +337,66 @@ class Runner:
             else:
                 self._set_state(State.MINING)
         self._emit("refreshed", {"at": now.isoformat()})
+
+    def _choose_points(self, usable: list[LiveChannel], prefs) -> list[LiveChannel]:
+        """The Channel points list's live streamers to watch, top of the list first. The one the drop miner is
+        on already earns there; past the free slots the rest wait (points_waiting says which and why)."""
+        self.points_waiting = {}
+        live = {c.login: c for c in usable}
+        slots = min(len(self._points_watchers), POINTS_SLOTS - (1 if self.watching else 0))
+        picks: list[LiveChannel] = []
+        for lg in prefs.points_channels:
+            ch = live.get(lg)
+            if ch is None:
+                continue
+            if self.watching and lg == self.watching.login:
+                self.points_waiting[lg] = "drops"
+            elif len(picks) < slots:
+                picks.append(ch)
+            else:
+                self.points_waiting[lg] = "full"
+        return picks
+
+    def _set_points(self, picks: list[LiveChannel], now: datetime) -> None:
+        """Hand each picked stream a watcher, keeping the one it already has; log who starts and stops."""
+        new = {c.login for c in picks}
+        for ch in self.points_watching:
+            if ch.login not in new:
+                self._points_slot.pop(ch.login, None)
+                self.points_since.pop(ch.login, None)
+                self._points_fails.pop(ch.login, None)
+                self._store.log_event("points_watch", {"channel": ch.login, "on": False})
+        free = [w for w in self._points_watchers if w not in self._points_slot.values()]
+        for ch in picks:
+            if ch.login not in self._points_slot:
+                self._points_slot[ch.login] = free.pop(0)
+                self.points_since[ch.login] = now
+                self._store.log_event("points_watch", {"channel": ch.login, "on": True,
+                                                       "game": ch.game_name or None})
+        self.points_watching = list(picks)
+
+    async def _tick_points(self, now: datetime) -> None:
+        """Play each points stream, side by side. One that keeps failing is set aside like a drop channel."""
+        chans = list(self.points_watching)
+        if not chans:
+            return
+        results = await asyncio.gather(*(self._points_slot[c.login].send(c, now) for c in chans),
+                                       return_exceptions=True)
+        dropped = False
+        for ch, ok in zip(chans, results, strict=True):
+            if ok is True:
+                self._points_fails.pop(ch.login, None)
+                continue
+            n = self._points_fails.get(ch.login, 0) + 1
+            if n < FAILS_BEFORE_SWITCH:
+                self._points_fails[ch.login] = n
+                continue
+            self._points_slot[ch.login].forget(ch.login)
+            self._excluded[ch.login] = now + EXCLUDE_FOR
+            self._store.log_event("points_dropped", {"channel": ch.login})
+            dropped = True
+        if dropped:
+            await self.replan()
 
     def _settle_link_marks(self, now: datetime) -> None:
         """A "may need linking" mark ends once Twitch reports the link either way, or after 6 h."""
@@ -367,8 +447,12 @@ class Runner:
             ch = next((c for c in usable if c.login == lg), None)
             if ch is None or ch.broadcast_id in self._streak_done:
                 continue
-            if drop is not None and ch.login == drop.login:
-                self._mark_streak_done(ch.broadcast_id)  # earned while mining it
+            # one the Channel points list will watch anyway (a slot is free for it) needs no detour
+            watched = {p.login for p in self._choose_points(usable, prefs)}
+            if drop is not None:
+                watched.add(drop.login)
+            if ch.login in watched:
+                self._mark_streak_done(ch.broadcast_id)  # earned while mining it, or watching it for points
                 continue
             self._streak = (ch.broadcast_id, ch.login, now)
             return ch
@@ -466,6 +550,7 @@ class Runner:
                 self._set_state(State.PAUSED)
                 return
             self.resume()
+            await self.replan()  # points watching comes back now, not at the next refresh
         if self._streak and now - self._streak[2] >= STREAK_VISIT:
             await self.replan()  # a visit ends on time, not at the next refresh (review fix)
         if self.state == State.TWITCH_UNREACHABLE and self._retry_refresh_at is not None:
@@ -474,6 +559,7 @@ class Runner:
             due = self.last_refresh is None or now - self.last_refresh >= REFRESH_EVERY
         if due:
             await self.refresh()
+        await self._tick_points(now)
         if self.watching is None:
             return
         if await self._watcher.send(self.watching, now):
@@ -571,7 +657,12 @@ class Runner:
         if not self._points_on():
             return
         logins = [self.watching.login] if self.watching else []
-        logins += [lg for lg in self._recent_channels() if lg not in logins]
+        # the Channel points list too: a chest left when its stream stopped being watched still waits there
+        for lg in (*(c.login for c in self.points_watching), *self._store.get_prefs().points_channels,
+                   *self._recent_channels()):
+            if lg not in logins:
+                logins.append(lg)
+        logins = logins[:RECENT_CHEST_CHANNELS + POINTS_SLOTS + 1]
         if not logins:
             return
         try:
@@ -620,6 +711,12 @@ class Runner:
             login = self._down_ids.pop(event.channel_id, None)
             if login:
                 self._excluded.pop(login, None)
+        elif isinstance(event, StreamDown) and (
+                ch := next((c for c in self.points_watching if c.id == event.channel_id), None)):
+            # a points stream ended: set it aside like a drop channel, and fill its slot from the list
+            self._excluded[ch.login] = self._clock() + EXCLUDE_FOR
+            self._down_ids[ch.id] = ch.login
+            await self.replan()
         elif isinstance(event, (StreamDown, StreamChanged)):
             if self.watching and event.channel_id == self.watching.id:
                 if isinstance(event, StreamDown):

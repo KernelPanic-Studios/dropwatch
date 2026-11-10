@@ -268,6 +268,8 @@ svg.i { width: 16px; height: 16px; flex: none; }
 
 /* ---------- priorities ---------- */
 .lead { color: var(--muted); max-width: 60ch; margin: 0; }
+.points-note { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--muted); font-size: 13px; }
+.points-note > svg { width: 16px; height: 16px; flex: none; color: var(--accent-text); }
 .bucket { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
 .bucket-h { padding: 14px 16px; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
 .bucket-h h2 { font-size: 15px; }
@@ -298,6 +300,11 @@ svg.i { width: 16px; height: 16px; flex: none; }
 .add input { flex: 1; min-width: 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
 .confirm { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; font-size: 13px; background: var(--surface-2); border-radius: 8px; padding: 8px 10px; }
 .confirm .acts { display: flex; gap: 6px; margin-left: auto; }
+.add-live:empty { display: none; }
+.add-note { display: flex; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+.add-note > svg { width: 15px; height: 15px; flex: none; color: var(--ok-text); }
+.add-note.warn { color: var(--alert-text); }
+.add-note .on { color: var(--ok-text); }
 
 /* ---------- history ---------- */
 .hist-lead { display: flex; align-items: center; gap: 10px; font-size: 15px; }
@@ -374,7 +381,7 @@ svg.i { width: 16px; height: 16px; flex: none; }
   .wrap { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   .bar-in { min-height: 52px; gap: 12px; }
   .pill { font-size: 12px; padding: 4px 9px; }
-  .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 6; background: var(--surface); border-top: 1px solid var(--line); padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
   .tabs a { flex-direction: column; gap: 3px; font-size: 11px; padding: 6px 4px; min-height: 52px; justify-content: center; }
   .tabs a svg { display: block; width: 20px; height: 20px; }
   .tabs a[aria-current="page"] { background: none; color: var(--accent-text); }

@@ -1,6 +1,6 @@
 [project]
 name = "dropwatch"
-version = "0.2.0"
+version = "0.3.0"
 description = "Earns Twitch Drops and channel points for one account, with a web dashboard"
 requires-python = ">=3.12"
 dependencies = [

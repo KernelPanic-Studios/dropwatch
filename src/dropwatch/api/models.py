@@ -76,6 +76,12 @@ class StreakVisitOut(BaseModel):
     until: datetime
 
 
+class PointsWatchOut(BaseModel):
+    channel: str
+    game: str | None
+    since: datetime  # watched without a break since then
+
+
 class StateOut(BaseModel):
     state: str
     signed_in: bool
@@ -95,6 +101,7 @@ class StateOut(BaseModel):
     outside: list[CampaignOut] = []  # Priority only: what would be mined otherwise, in queue order
     first_in_line: list[str] = []  # idle: names of the next campaigns to mine once a channel goes live
     streak_visit: StreakVisitOut | None = None  # watching a favourite for its watch streak; drops wait
+    points_watching: list[PointsWatchOut] = []  # Channel points: streamers watched alongside drops right now
     build: str = ""  # version+commit running; the page offers a reload when it changes
 
 
@@ -117,6 +124,42 @@ class ListsIn(StrictIn):
     priority: NameList = Field(default_factory=list, max_length=200)
     never: NameList = Field(default_factory=list, max_length=200)
     favourites: NameList = Field(default_factory=list, max_length=200)
+
+
+class PointsChannelsIn(StrictIn):
+    channels: NameList = Field(default_factory=list, max_length=200)
+
+
+class PointsChannelOut(BaseModel):
+    login: str
+    live: bool  # live now, as of the last refresh
+    game: str | None  # what it is (or was last) streaming
+    viewers: int | None  # while live
+    last_seen: datetime | None  # last seen live; None if never seen
+    watching: bool  # being watched for its points right now
+    watching_since: datetime | None
+    # this one is live but not watched: why ("drops" = the drop miner is on it, so it earns there;
+    # "full" = Twitch counts two streams at once and both are taken by channels higher up the list)
+    waiting: str | None = None
+    points: int = 0  # gained on this channel in the last `days`, from anything Dropwatch watched
+    chests: int = 0
+
+
+class ChannelLookupOut(BaseModel):
+    login: str  # as Twitch has it (lower case)
+    found: bool  # False: Twitch has no channel by that name
+    display_name: str | None = None
+    live: bool = False
+    game: str | None = None  # what it's streaming, or was last set to stream
+
+
+class PointsPageOut(BaseModel):
+    on: bool  # Settings' points_watch: off keeps the list but watches nothing
+    paused: bool  # mining is paused, which pauses points watching too
+    days: int  # the period the per-channel totals cover
+    channels: list[PointsChannelOut]  # in the list's order
+    points: int = 0  # gained on every channel in the period
+    chests: int = 0
 
 
 class Pins(BaseModel):
@@ -160,6 +203,7 @@ class SettingsIn(BaseModel):
     campaigns_every_minutes: Literal[15, 30, 60, 120, 240] | None = None  # the choices Settings offers
     points_watch_streak: StrictBool | None = None
     priority_only: StrictBool | None = None
+    points_watch: StrictBool | None = None
     model_config = ConfigDict(extra="forbid")  # a misspelt or retired setting is an error, not a no-op
 
 
@@ -183,6 +227,7 @@ class SettingsOut(BaseModel):
     campaigns_every_minutes: int
     points_watch_streak: bool
     priority_only: bool
+    points_watch: bool
 
 
 class ActivityEvent(BaseModel):

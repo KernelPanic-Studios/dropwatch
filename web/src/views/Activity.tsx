@@ -82,6 +82,12 @@ export function describe(e: ActivityEvent, older: ActivityEvent | undefined): Li
     case "points_claim_failed":
       return { text: d.channel ? <>Couldn't open a channel points chest on <b>{s(d.channel)}</b></> : "Couldn't open a channel points chest",
         tone: "bad", group: "problems" };
+    case "points_watch":
+      return d.on
+        ? { text: <>Started watching <b>{s(d.channel)}</b> for channel points</>, d: s(d.game) || undefined, tone: "gold", group: "rewards" }
+        : { text: <>Stopped watching <b>{s(d.channel)}</b> for channel points</>, tone: "", group: "rewards" };
+    case "points_dropped":
+      return { text: <>Stopped watching <b>{s(d.channel)}</b> for channel points: its stream wouldn't play</>, tone: "bad", group: "problems" };
     case "points_earned": {
       const reason = s(d.reason) === "WATCH_STREAK" ? "watch-streak " : s(d.reason) === "RAID" ? "raid " : "";
       return { text: `Earned ${typeof d.points === "number" ? d.points : ""} ${reason}points${d.channel ? ` on ${s(d.channel)}` : ""}`,

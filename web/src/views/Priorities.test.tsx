@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { AppProvider, useApp } from "../store";
 import { mockApi } from "../test/fetch";
 import { campaign, state } from "../test/fixtures";
-import { PrioritiesView } from "./Priorities";
+import { PrioritiesView, bestMatches } from "./Priorities";
 
 const ME = { authenticated: true, setup_required: false };
 function Said() {
@@ -76,13 +76,30 @@ test("favourites say live now, when they were last seen, or not seen yet", async
   expect(screen.getByText("Not seen live yet")).toBeInTheDocument();
 });
 
-test("the channel add box suggests offline channels too, with a note", async () => {
+test("the channel add box suggests offline channels too, with a note, once 3 letters are typed", async () => {
   setup({ priority: [], never: [], favourites: [] });
-  await screen.findByRole("combobox", { name: "Add a favourite channel" });
-  const opts = [...document.querySelectorAll("#known-channels option")].map((o) => [o.getAttribute("value"), o.getAttribute("label")]);
-  expect(opts[0]).toEqual(["example_streamer", "Live now · Palia"]);
-  expect(opts[1]![0]).toBe("dnd");
-  expect(opts[1]![1]).toMatch(/^Offline · last seen/);
+  const u = userEvent.setup();
+  const box = await screen.findByRole("combobox", { name: "Add a favourite channel" });
+  const opts = () => [...document.querySelectorAll("#opts-fav option")].map((o) => [o.getAttribute("value"), o.getAttribute("label")]);
+  await u.type(box, "ex");
+  expect(opts()).toEqual([]);  // nothing until 3 letters
+  await u.type(box, "a");
+  expect(opts()).toEqual([["example_streamer", "Live now · Palia"]]);
+  await u.clear(box);
+  await u.type(box, "dnd");
+  expect(opts()[0]![0]).toBe("dnd");
+  expect(opts()[0]![1]).toMatch(/^Offline · last seen/);
+});
+
+test("suggestions are the best few matches: whole name, then starts with, then a word in it, then anywhere", () => {
+  const o = (...v: string[]) => v.map((value) => ({ value }));
+  const names = o("sam_speedruns", "notspeedy", "speedrunsam", "speed", "xx", ...Array.from({ length: 20 }, (_, i) => `speedfan${i}`));
+  expect(bestMatches(names, "sp")).toEqual([]);
+  const got = bestMatches(names, "Speed").map((x) => x.value);
+  expect(got.slice(0, 2)).toEqual(["speed", "speedfan0"]);
+  expect(got).toHaveLength(8);
+  expect(bestMatches(o("sam_speedruns", "notspeedy", "speedrunsam"), "speed").map((x) => x.value))
+    .toEqual(["speedrunsam", "sam_speedruns", "notspeedy"]);
 });
 
 test("Never games keep their box art and say their campaign is running", async () => {
