@@ -92,7 +92,6 @@ export function PointsView() {
           <div className="stat"><div className="n">{n(page.chests)}</div><div className="l">{page.chests === 1 ? "bonus chest" : "bonus chests"} opened</div></div>
         </div>
       )}
-      <datalist id="points-channels">{known.map((c) => <option key={c.login} value={c.login} label={channelNote(c)} />)}</datalist>
       <Bucket title="Streamers" count={page.channels.length}
         help="Top to bottom: when more are live than there are free streams, the ones higher up are watched. Points earned here and on drop streams both count.">
         <div className="zone" id="z-points">
@@ -101,7 +100,7 @@ export function PointsView() {
               onMove={move} onRemove={(lg) => void save(logins.filter((x) => x !== lg), `${lg} removed from Channel points`)} />
           )) : <div className="empty">No streamers yet. Add one below and they'll be watched next time they go live.</div>}
         </div>
-        <AddForm to="points" list="points-channels" placeholder="Add a streamer" known={sugg.channels.map((c) => c.login)}
+        <AddForm to="points" options={known.map((c) => ({ value: c.login, label: channelNote(c) }))} placeholder="Add a streamer" known={sugg.channels.map((c) => c.login)}
           label="Add a streamer to Channel points"
           onAdd={(name) => save([...logins.filter((x) => x !== name.toLowerCase()), name.toLowerCase()], `${name} added to Channel points`)} />
       </Bucket>

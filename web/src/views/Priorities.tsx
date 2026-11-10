@@ -138,7 +138,9 @@ export function PrioritiesView() {
   const info = gameInfo(state);
   const chan = new Map(sugg.channels.map((c) => [c.login, c]));
   const pool = sugg.games.filter((g) => !lists.priority.includes(g) && !lists.never.includes(g));
-  const knownCh = sugg.channels.filter((c) => !lists.favourites.includes(c.login));
+  const gameOpts = pool.map((g) => ({ value: g }));
+  const chanOpts = sugg.channels.filter((c) => !lists.favourites.includes(c.login))
+    .map((c) => ({ value: c.login, label: channelNote(c) }));
 
   const zone = (z: Zone) => {
     const list = shown[KEY[z]];
@@ -159,24 +161,22 @@ export function PrioritiesView() {
     <section className="view" id="v-priorities" aria-labelledby="h-priorities">
       <div className="view-h"><h1 id="h-priorities" className="disp" tabIndex={-1}>Priorities</h1></div>
       <p className="lead">Every game with a drop campaign gets mined. Games in Priority go first, in your order. Games not listed here are mined after them, most urgent first. Overview shows the full order under Up next.</p>
-      <datalist id="campaign-games">{pool.map((g) => <option key={g} value={g} />)}</datalist>
-      <datalist id="known-channels">{knownCh.map((c) => <option key={c.login} value={c.login} label={channelNote(c)} />)}</datalist>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={onDragStart} onDragOver={onDragOver}
         onDragEnd={onDragEnd} onDragCancel={() => { setActive(null); setDraft(null); }}>
       <Bucket title="Priority" count={shown.priority.length} help="Mined first, top to bottom.">
         {zone("priority")}
-        <AddForm to="priority" list="campaign-games" placeholder="Add a game" known={sugg.games} label="Add a game to Priority"
+        <AddForm to="priority" options={gameOpts} placeholder="Add a game" known={sugg.games} label="Add a game to Priority"
           onAdd={(name) => commit(moved(name, "priority"), `${name} added to Priority`)} />
       </Bucket>
       <Bucket title="Favourite channels" count={shown.favourites.length}
         help="When a campaign can be mined on several live channels, these get watched first, top to bottom. Your game order above still decides which campaign.">
         {zone("fav")}
-        <AddForm to="fav" list="known-channels" placeholder="Add a channel" known={sugg.channels.map((c) => c.login)} label="Add a favourite channel"
+        <AddForm to="fav" options={chanOpts} placeholder="Add a channel" known={sugg.channels.map((c) => c.login)} label="Add a favourite channel"
           onAdd={(name) => commit(moved(name.toLowerCase(), "fav"), `${name} added to favourite channels`)} />
       </Bucket>
       <Bucket title="Never" count={shown.never.length} help="Never mined, even when nothing else is live.">
         {zone("never")}
-        <AddForm to="never" list="campaign-games" placeholder="Add a game" known={sugg.games} label="Add a game to Never"
+        <AddForm to="never" options={gameOpts} placeholder="Add a game" known={sugg.games} label="Add a game to Never"
           onAdd={(name) => commit(moved(name, "never"), `${name} added to Never`)} />
       </Bucket>
       <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(.2,.8,.2,1)" }}>
@@ -287,8 +287,29 @@ function RowBody({ name, zone, i, n, info, ch, onAct, rootRef, rootProps, placeh
   );
 }
 
-export function AddForm({ to, list, placeholder, known, label, onAdd }: {
-  to: Zone | "points"; list: string; placeholder: string; known: string[]; label: string; onAdd: (name: string) => Promise<void> | void;
+export const MIN_TYPED = 3;  // suggestions start after this many letters
+const MAX_SUGGESTED = 8;
+
+/** The add box's suggestions: none until MIN_TYPED letters are typed, then the best few matches. A whole
+ * match first, then names starting with it, then a word inside the name starting with it ("speed" finds
+ * "sam_speedruns"), then anywhere in it; shorter names first within each. */
+export function bestMatches<T extends { value: string }>(options: T[], typed: string, max = MAX_SUGGESTED): T[] {
+  const q = typed.trim().toLowerCase();
+  if (q.length < MIN_TYPED) return [];
+  const rank = (name: string) => {
+    const n = name.toLowerCase();
+    if (n === q) return 0;
+    if (n.startsWith(q)) return 1;
+    if (n.split(/[\s_\-:.]+/).some((w) => w.startsWith(q))) return 2;
+    return n.includes(q) ? 3 : -1;
+  };
+  return options.map((o) => [rank(o.value), o] as const).filter(([r]) => r >= 0)
+    .sort(([ra, a], [rb, b]) => ra - rb || a.value.length - b.value.length || a.value.localeCompare(b.value))
+    .slice(0, max).map(([, o]) => o);
+}
+
+export function AddForm({ to, options, placeholder, known, label, onAdd }: {
+  to: Zone | "points"; options: { value: string; label?: string }[]; placeholder: string; known: string[]; label: string; onAdd: (name: string) => Promise<void> | void;
 }) {
   const [v, setV] = useState("");
   const [unknown, setUnknown] = useState<string | null>(null);
@@ -305,8 +326,11 @@ export function AddForm({ to, list, placeholder, known, label, onAdd }: {
   }
   return (
     <form className="add" data-to={to} noValidate onSubmit={submit}>
+      <datalist id={`opts-${to}`}>
+        {bestMatches(options, v).map((o) => <option key={o.value} value={o.value} label={o.label} />)}
+      </datalist>
       <div className="add-row">
-        <input ref={input} id={`add-${to}`} type="text" list={list} placeholder={placeholder} aria-label={label} autoComplete="off"
+        <input ref={input} id={`add-${to}`} type="text" list={`opts-${to}`} placeholder={placeholder} aria-label={label} autoComplete="off"
           value={v} onChange={(e) => setV(e.target.value)} />
         <button className="btn" type="submit">Add</button>
       </div>
