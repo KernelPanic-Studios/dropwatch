@@ -13,6 +13,7 @@ PRIVATE = [
     ("GET", "/api/backup"), ("POST", "/api/restore"), ("GET", "/api/activity"), ("POST", "/api/streak/end"),
     ("GET", "/api/sessions"), ("DELETE", "/api/sessions/{session_id}"),
     ("POST", "/api/sessions/sign-out-others"), ("GET", "/api/points"), ("PUT", "/api/points/channels"),
+    ("GET", "/api/channels/lookup"),
 ]
 
 

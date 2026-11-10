@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 
 from ..backup import BadBackup, make_backup, restore_backup
 from ..notify import CHANNELS, configured, send_all, summary
-from ..runner import State
+from ..runner import TWITCH_ERRORS, State
 from ..store import EVENT_RETENTION
 from ..version import VERSION, build_info, server_tz
 from .auth import COOKIE, LoginLimiter, private_auth, public, require_session
@@ -25,6 +25,7 @@ from .models import (
     ActivityEvent,
     ActivityOut,
     ChannelIn,
+    ChannelLookupOut,
     ChannelSuggestion,
     HistoryOut,
     IgnoredOut,
@@ -425,6 +426,22 @@ def _points_page(ctx, days: int) -> PointsPageOut:
     sums = ctx.store.points_since(now - timedelta(days=days))
     return PointsPageOut(on=on, paused=bool(r and r.state == State.PAUSED), days=days, channels=channels,
                          points=sums["points"], chests=sums["chests"])
+
+
+TWITCH_LOGIN = r"^[A-Za-z0-9_]{1,25}$"
+
+
+@api.get("/channels/lookup", response_model=ChannelLookupOut)
+async def lookup_channel(request: Request,
+                         login: str = Query(..., pattern=TWITCH_LOGIN)) -> ChannelLookupOut:
+    """The add boxes' check: is there a Twitch channel by this name, and is it live? Asks Twitch now."""
+    try:
+        found = await _runner(_c(request)).lookup_channel(login.lower())
+    except TWITCH_ERRORS as exc:
+        raise HTTPException(status_code=502, detail="Couldn't reach Twitch to check that name.") from exc
+    if found is None:
+        return ChannelLookupOut(login=login.lower(), found=False)
+    return ChannelLookupOut(found=True, **found)
 
 
 @api.get("/points", response_model=PointsPageOut)

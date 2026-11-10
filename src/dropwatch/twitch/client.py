@@ -90,6 +90,16 @@ class TwitchClient:
                     seen.setdefault(ch.login, ch)
         return list(seen.values())
 
+    async def lookup_channel(self, login: str) -> dict | None:
+        """A channel by login, live or not (the add boxes' check); None when Twitch has no such user."""
+        resp = await self._gql.run(op("GetStreamInfo", channel=login))
+        user = (resp.get("data") or {}).get("user") if isinstance(resp, dict) else None
+        if not user or not user.get("login"):
+            return None
+        game = (user.get("broadcastSettings") or {}).get("game") or {}
+        return {"login": user["login"].lower(), "display_name": user.get("displayName") or user["login"],
+                "live": bool(user.get("stream")), "game": game.get("displayName") or game.get("name") or None}
+
     async def claim(self, claim_id: str) -> bool:
         try:
             resp = await self._gql.run(op("ClaimDrop", input={"dropInstanceID": claim_id}))

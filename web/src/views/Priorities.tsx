@@ -308,22 +308,69 @@ export function bestMatches<T extends { value: string }>(options: T[], typed: st
     .slice(0, max).map(([, o]) => o);
 }
 
+/** What was typed in a channel box, as a Twitch login: a name ("@Quibble_Bibble") or a channel link
+ * ("https://www.twitch.tv/quibble_bibble/videos?x=1", "m.twitch.tv/…"). Null when it can't be one. */
+export function channelLogin(text: string): string | null {
+  let t = text.trim().replace(/^@/, "");
+  const link = t.match(/^(?:https?:\/\/)?(?:www\.|m\.|go\.)?twitch\.tv\/([^/?#\s]+)/i);
+  if (link) t = link[1]!;
+  return /^[A-Za-z0-9_]{1,25}$/.test(t) ? t.toLowerCase() : null;
+}
+
+type Lookup = { login: string; found: boolean; display_name?: string | null; live?: boolean; game?: string | null };
+type Check = { login: string } & ({ status: "checking" } | { status: "done"; got: Lookup } | { status: "error" } | { status: "bad" });
+
 export function AddForm({ to, options, placeholder, known, label, onAdd }: {
   to: Zone | "points"; options: { value: string; label?: string }[]; placeholder: string; known: string[]; label: string; onAdd: (name: string) => Promise<void> | void;
 }) {
+  const channels = to === "fav" || to === "points";
   const [v, setV] = useState("");
   const [unknown, setUnknown] = useState<string | null>(null);
+  const [check, setCheck] = useState<Check | null>(null);
   const input = useRef<HTMLInputElement>(null);
+  const asking = useRef<{ login: string; p: Promise<Check> } | null>(null);  // blur and Add share one request
+
+  /** Channel boxes: ask Twitch whether the name exists (on blur, and before adding a name not seen yet). */
+  async function lookUp(raw: string): Promise<Check | null> {
+    if (!raw.trim()) { setCheck(null); return null; }
+    const login = channelLogin(raw);
+    if (!login) { const c: Check = { login: raw.trim(), status: "bad" }; setCheck(c); return c; }
+    if (login !== raw.trim()) setV(login);  // a pasted link becomes the name it points at
+    if (asking.current?.login === login) return asking.current.p;
+    setCheck({ login, status: "checking" });
+    const p = api.get<Lookup>(`/channels/lookup?login=${encodeURIComponent(login)}`)
+      .then((got): Check => ({ login, status: "done", got }), (): Check => ({ login, status: "error" }));
+    asking.current = { login, p };
+    const c = await p;
+    if (c.status === "error" && asking.current?.p === p) asking.current = null;  // try again next time
+    setCheck((now) => (now && now.login === login ? c : now));
+    return c;
+  }
+  async function add(name: string) {
+    setV(""); setUnknown(null); setCheck(null); asking.current = null;
+    await onAdd(name);
+    input.current?.focus();
+  }
   async function submit(e: FormEvent) {
     e.preventDefault();
     const val = v.trim();
     if (!val) return;
-    const match = known.find((n) => n.toLowerCase() === val.toLowerCase());
-    if (!match) { setUnknown(val); return; }
-    setV(""); setUnknown(null);
-    await onAdd(match);
-    input.current?.focus();
+    const name = channels ? channelLogin(val) : val;
+    const match = name && known.find((n) => n.toLowerCase() === name.toLowerCase());
+    if (match) { await add(match); return; }
+    if (!channels) { setUnknown(val); return; }
+    const c = await lookUp(val);
+    if (c?.status === "done" && c.got.found) await add(c.got.login);
+    else if (c?.status === "error") setUnknown(c.login);  // couldn't ask Twitch: the old question
   }
+  const note = channels && check && (
+    check.status === "checking" ? <div className="add-note">Checking Twitch for <b>{check.login}</b>…</div>
+      : check.status === "bad" ? <div className="add-note warn">That isn't a Twitch name or channel link.</div>
+      : check.status === "done" && check.got.found ? (
+        <div className="add-note ok"><Icon name="check" /><span><b>{check.got.display_name ?? check.got.login}</b> is on Twitch
+          {check.got.live ? <> · <span className="on">Live now{check.got.game ? ` · ${check.got.game}` : ""}</span></> : " · Offline"}</span></div>)
+      : check.status === "done" ? <div className="add-note warn">Twitch has no channel called <b>{check.login}</b>. Check the spelling.</div>
+      : null);
   return (
     <form className="add" data-to={to} noValidate onSubmit={submit}>
       <datalist id={`opts-${to}`}>
@@ -331,16 +378,18 @@ export function AddForm({ to, options, placeholder, known, label, onAdd }: {
       </datalist>
       <div className="add-row">
         <input ref={input} id={`add-${to}`} type="text" list={`opts-${to}`} placeholder={placeholder} aria-label={label} autoComplete="off"
-          value={v} onChange={(e) => setV(e.target.value)} />
+          value={v} onChange={(e) => { setV(e.target.value); if (check) setCheck(null); setUnknown(null); }}
+          onBlur={channels ? () => void lookUp(v) : undefined} />
         <button className="btn" type="submit">Add</button>
       </div>
+      <div className="add-live" aria-live="polite">{note}</div>
       {unknown && (
         <div className="confirm">
-          <span>{to === "fav" || to === "points"
-            ? <>The miner hasn't seen a channel called <b>{unknown}</b> yet. Check the spelling, or add it anyway.</>
+          <span>{channels
+            ? <>Couldn't check <b>{unknown}</b> with Twitch just now. Check the spelling, or add it anyway.</>
             : <>No game called <b>{unknown}</b> has a campaign right now. Check the spelling, or add it so it's ready when one starts.</>}</span>
           <span className="acts">
-            <button className="btn" type="button" onClick={async () => { const n = unknown; setV(""); setUnknown(null); await onAdd(n); input.current?.focus(); }}>Add anyway</button>
+            <button className="btn" type="button" onClick={() => void add(unknown)}>Add anyway</button>
             <button className="btn quiet" type="button" onClick={() => { setUnknown(null); input.current?.focus(); }}>Cancel</button>
           </span>
         </div>

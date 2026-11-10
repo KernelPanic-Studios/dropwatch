@@ -5,6 +5,7 @@ import { mockApi } from "../test/fetch";
 import { state } from "../test/fixtures";
 import { PointsNote } from "./Overview";
 import { PointsView } from "./Points";
+import { channelLogin } from "./Priorities";
 
 const ME = { authenticated: true, setup_required: false };
 function Said() {
@@ -24,12 +25,15 @@ const PAGE = {
   ],
 };
 
-function setup(page: unknown = PAGE, put?: (b: unknown) => unknown, claims = true) {
+const QUIBBLE = { login: "quibble_bibble", found: true, display_name: "Quibble_Bibble", live: false, game: "Palia" };
+
+function setup(page: unknown = PAGE, put?: (b: unknown) => unknown, claims = true, lookup: unknown = QUIBBLE) {
   const calls = mockApi({
     "GET /api/state": state(), "GET /api/points": page, "GET /api/settings": { claim_points: claims },
     "GET /api/suggestions": { games: [], channels: [{ login: "dave", live: true, game: "Palia", last_seen: null }] },
     "PUT /api/points/channels": put ?? ((b: { channels: string[] }) => ({ ...PAGE, channels: b.channels.map((lg) => PAGE.channels.find((c) => c.login === lg) ?? row(lg)) })),
     "PUT /api/settings": { claim_points: claims, points_watch: false },
+    "GET /api/channels/lookup": lookup,
   });
   render(<AppProvider initialMe={ME}><PointsView /><Said /></AppProvider>);
   return calls;
@@ -73,4 +77,38 @@ test("Overview says who is watched for points", () => {
   mockApi({});
   render(<AppProvider initialMe={ME}><PointsNote state={state({ points_watching: [{ channel: "alice", game: null, since: "2026-11-08T14:02:00Z" }] })} /></AppProvider>);
   expect(screen.getByRole("status")).toHaveTextContent("Also watching alice for channel points.");
+});
+
+test("a channel link or @name is read as the Twitch name", () => {
+  expect(channelLogin("https://www.twitch.tv/Quibble_Bibble")).toBe("quibble_bibble");
+  expect(channelLogin("twitch.tv/quibble_bibble/videos?filter=all")).toBe("quibble_bibble");
+  expect(channelLogin("m.twitch.tv/quibble_bibble")).toBe("quibble_bibble");
+  expect(channelLogin("  @Quibble_Bibble ")).toBe("quibble_bibble");
+  expect(channelLogin("not a name")).toBeNull();
+  expect(channelLogin("https://youtube.com/@someone")).toBeNull();
+});
+
+test("a pasted link is checked with Twitch on blur, then added without asking", async () => {
+  const calls = setup();
+  const u = userEvent.setup();
+  const box = await screen.findByRole("combobox", { name: "Add a streamer to Channel points" });
+  await u.click(box);
+  await u.paste("https://www.twitch.tv/Quibble_Bibble");
+  await u.tab();
+  expect(await screen.findByText(/is on Twitch/)).toHaveTextContent("Quibble_Bibble is on Twitch · Offline");
+  expect(box).toHaveValue("quibble_bibble");
+  expect(calls.find((c) => c.path.startsWith("/api/channels/lookup"))?.path).toBe("/api/channels/lookup?login=quibble_bibble");
+  await u.click(screen.getByRole("button", { name: "Add" }));
+  await waitFor(() => expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ channels: ["alice", "bob", "carol", "quibble_bibble"] }));
+  expect(calls.filter((c) => c.path.startsWith("/api/channels/lookup"))).toHaveLength(1);
+  expect(screen.queryByText(/hasn't seen/)).toBeNull();
+});
+
+test("a name Twitch doesn't know is flagged and not added", async () => {
+  const calls = setup(PAGE, undefined, true, { login: "nobody_here", found: false });
+  const u = userEvent.setup();
+  await u.type(await screen.findByRole("combobox", { name: "Add a streamer to Channel points" }), "nobody_here");
+  await u.click(screen.getByRole("button", { name: "Add" }));
+  expect(await screen.findByText(/Twitch has no channel called/)).toHaveTextContent("nobody_here");
+  expect(calls.some((c) => c.method === "PUT")).toBe(false);
 });

@@ -160,6 +160,10 @@ class Runner:
         self._link_probe.pop(campaign_id, None)
         self._end_streak_visit()
 
+    async def lookup_channel(self, login: str) -> dict | None:
+        """The add boxes' check of a channel name (no state is changed)."""
+        return await self._client.lookup_channel(login)
+
     def use_channel(self, login: str) -> None:
         self._override_channel = login
         self._end_streak_visit()  # the user's pick wins over a watch-streak visit

@@ -145,6 +145,14 @@ class PointsChannelOut(BaseModel):
     chests: int = 0
 
 
+class ChannelLookupOut(BaseModel):
+    login: str  # as Twitch has it (lower case)
+    found: bool  # False: Twitch has no channel by that name
+    display_name: str | None = None
+    live: bool = False
+    game: str | None = None  # what it's streaming, or was last set to stream
+
+
 class PointsPageOut(BaseModel):
     on: bool  # Settings' points_watch: off keeps the list but watches nothing
     paused: bool  # mining is paused, which pauses points watching too

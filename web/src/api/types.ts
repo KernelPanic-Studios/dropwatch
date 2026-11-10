@@ -75,6 +75,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/channels/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lookup Channel
+         * @description The add boxes' check: is there a Twitch channel by this name, and is it live? Asks Twitch now.
+         */
+        get: operations["lookup_channel_api_channels_lookup_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/events": {
         parameters: {
             query?: never;
@@ -723,6 +743,22 @@ export interface components {
         };
         /** ChannelIn */
         ChannelIn: {
+            /** Login */
+            login: string;
+        };
+        /** ChannelLookupOut */
+        ChannelLookupOut: {
+            /** Display Name */
+            display_name?: string | null;
+            /** Found */
+            found: boolean;
+            /** Game */
+            game?: string | null;
+            /**
+             * Live
+             * @default false
+             */
+            live: boolean;
             /** Login */
             login: string;
         };
@@ -1412,6 +1448,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    lookup_channel_api_channels_lookup_get: {
+        parameters: {
+            query: {
+                login: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChannelLookupOut"];
+                };
             };
             /** @description Validation Error */
             422: {

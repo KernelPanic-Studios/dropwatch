@@ -267,6 +267,51 @@
     "title": "ChannelIn",
     "type": "object"
    },
+   "ChannelLookupOut": {
+    "properties": {
+     "display_name": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Display Name"
+     },
+     "found": {
+      "title": "Found",
+      "type": "boolean"
+     },
+     "game": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Game"
+     },
+     "live": {
+      "default": false,
+      "title": "Live",
+      "type": "boolean"
+     },
+     "login": {
+      "title": "Login",
+      "type": "string"
+     }
+    },
+    "required": [
+     "login",
+     "found"
+    ],
+    "title": "ChannelLookupOut",
+    "type": "object"
+   },
    "ChannelOut": {
     "properties": {
      "favourite": {
@@ -2128,6 +2173,47 @@
      }
     },
     "summary": "Channel"
+   }
+  },
+  "/api/channels/lookup": {
+   "get": {
+    "description": "The add boxes' check: is there a Twitch channel by this name, and is it live? Asks Twitch now.",
+    "operationId": "lookup_channel_api_channels_lookup_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "login",
+      "required": true,
+      "schema": {
+       "pattern": "^[A-Za-z0-9_]{1,25}$",
+       "title": "Login",
+       "type": "string"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ChannelLookupOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Lookup Channel"
    }
   },
   "/api/events": {

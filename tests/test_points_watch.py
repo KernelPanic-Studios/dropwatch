@@ -151,3 +151,37 @@ async def test_api_lists_who_is_live_watched_and_what_they_earned(tmp_path):
     assert [x["login"] for x in res.json()["channels"]] == ["bob", "alice"]
     assert watching(r) == ["bob"]
     assert (await c.put("/api/points/channels", json={"channels": ["x"], "extra": 1})).status_code == 422
+
+
+async def test_api_looks_a_channel_up_by_name(tmp_path):
+    app, ctx = make_app(tmp_path)
+    r, client, *_ = make(tmp_path, [], store=ctx.store)
+    known = {"quibble_bibble": {"login": "quibble_bibble", "display_name": "Quibble_Bibble", "live": False,
+                                "game": "Palia"}}
+
+    async def lookup(login):
+        return known.get(login)
+    client.lookup_channel = lookup
+    ctx.service.runner = r
+    c = await logged_in(app)
+    got = (await c.get("/api/channels/lookup", params={"login": "Quibble_Bibble"})).json()
+    assert got == {"login": "quibble_bibble", "found": True, "display_name": "Quibble_Bibble", "live": False,
+                   "game": "Palia"}
+    assert (await c.get("/api/channels/lookup", params={"login": "nobody_here"})).json()["found"] is False
+    assert (await c.get("/api/channels/lookup", params={"login": "twitch.tv/x"})).status_code == 422
+
+
+async def test_client_lookup_reads_offline_and_missing_channels():
+    from dropwatch.twitch.client import TwitchClient
+
+    class G:
+        async def run(self, payload):
+            if payload["variables"]["channel"] == "ghost":
+                return {"data": {"user": None}}
+            return {"data": {"user": {"id": "5", "login": "Lena", "displayName": "Lena", "stream": None,
+                                      "broadcastSettings": {"game": {"displayName": "Just Chatting"}}}}}
+
+    c = TwitchClient(G(), 42)
+    assert await c.lookup_channel("lena") == {"login": "lena", "display_name": "Lena", "live": False,
+                                              "game": "Just Chatting"}
+    assert await c.lookup_channel("ghost") is None
