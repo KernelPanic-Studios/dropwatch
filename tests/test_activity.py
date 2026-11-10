@@ -4,7 +4,7 @@ import asyncio
 
 from apihelpers import client, logged_in, make_app
 from test_points import make as points_runner
-from test_runner import FakeClient, FakePubSub, FakeWatcher, camp, chan
+from test_runner import NOW, FakeClient, FakePubSub, FakeWatcher, camp, chan
 from test_summaries import make as notifier
 
 from dropwatch.alerts import Snapshot
@@ -21,7 +21,7 @@ def events(store, kind):
 async def test_a_switch_records_the_game_and_why(tmp_path):
     st = Store(tmp_path / "d.db")
     c = FakeClient([camp()], [chan("a", 7), chan("b", 8)])
-    r = Runner(c, FakeWatcher(), FakePubSub(), st, user_id=42)
+    r = Runner(c, FakeWatcher(), FakePubSub(), st, user_id=42, clock=lambda: NOW)
     await r.refresh()
     first = r.watching.login
     c.live = [x for x in c.live if x.login != first]
@@ -35,7 +35,7 @@ async def test_a_switch_records_the_game_and_why(tmp_path):
 async def test_a_claim_records_its_game(tmp_path):
     st = Store(tmp_path / "d.db")
     c = FakeClient([camp(cur=60, claim_id="x1")], [chan("a", 7)])
-    r = Runner(c, FakeWatcher(), FakePubSub(), st, user_id=42)
+    r = Runner(c, FakeWatcher(), FakePubSub(), st, user_id=42, clock=lambda: NOW)
     await r.refresh()
     (cl,) = events(st, "claimed")
     assert cl == {"campaign": "Frights", "reward": "Palcat Glasses", "game": "Palia"}
@@ -85,7 +85,7 @@ async def test_a_stream_that_ended_but_is_still_listed_counts_as_offline(tmp_pat
     # review fix: Twitch's directory lists a stream for minutes after it ends (runner.handle StreamDown)
     st = Store(tmp_path / "d.db")
     c = FakeClient([camp()], [chan("a", 7), chan("b", 8)])
-    r = Runner(c, FakeWatcher(), FakePubSub(), st, user_id=42)
+    r = Runner(c, FakeWatcher(), FakePubSub(), st, user_id=42, clock=lambda: NOW)
     await r.refresh()
     first = r.watching.login
     await r.handle(StreamDown(r.watching.id))  # still in c.live
