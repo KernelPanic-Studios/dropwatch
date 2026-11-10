@@ -1,4 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import {
+  DndContext, DragOverlay, KeyboardSensor, MouseSensor, TouchSensor, closestCenter, useSensor, useSensors, type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS as DndCSS } from "@dnd-kit/utilities";
+import { useCallback, useEffect, useState, type HTMLAttributes } from "react";
 import { ApiError, api, type PointsChannel, type PointsPage, type Settings, type Suggestions } from "../api/client";
 import { useApp } from "../store";
 import { clock, day } from "../ui/format";
@@ -14,6 +19,13 @@ export function PointsView() {
   const [page, setPage] = useState<PointsPage | null>(null);
   const [sugg, setSugg] = useState<Suggestions>({ games: [], channels: [] });
   const [claims, setClaims] = useState<boolean | null>(null);
+  const [active, setActive] = useState<string | null>(null);
+  // as on Priorities: a short mouse move or a press on touch starts a drag, so buttons and scrolling still work
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   const load = useCallback(async () => {
     try { setPage(await api.get<PointsPage>("/points")); } catch { /* shown as loading */ }
   }, []);
@@ -47,6 +59,14 @@ export function PointsView() {
     L.splice(j, 0, lg);
     void save(L, `${lg} moved to position ${j + 1} of ${L.length}`).then(() =>
       document.querySelector<HTMLButtonElement>(`.g[data-name="${CSS.escape(lg)}"] [data-act="${by < 0 ? "up" : "down"}"]:not(:disabled)`)?.focus());
+  }
+  function onDragEnd(e: DragEndEvent) {
+    setActive(null);
+    const id = String(e.active.id);
+    const a = logins.indexOf(id);
+    const b = e.over ? logins.indexOf(String(e.over.id)) : -1;
+    if (a < 0 || b < 0 || a === b) return;
+    void save(arrayMove(logins, a, b), `${id} moved to position ${b + 1} of ${logins.length}`);
   }
   async function toggle(on: boolean) {
     try {
@@ -94,12 +114,23 @@ export function PointsView() {
       )}
       <Bucket title="Streamers" count={page.channels.length}
         help="Top to bottom: when more are live than there are free streams, the ones higher up are watched. Points earned here and on drop streams both count.">
-        <div className="zone" id="z-points">
-          {page.channels.length ? page.channels.map((c, i) => (
-            <Row key={c.login} c={c} i={i} count={page.channels.length} on={page.on} paused={page.paused} days={page.days}
-              onMove={move} onRemove={(lg) => void save(logins.filter((x) => x !== lg), `${lg} removed from Channel points`)} />
-          )) : <div className="empty">No streamers yet. Add one below and they'll be watched next time they go live.</div>}
-        </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={(e) => setActive(String(e.active.id))}
+          onDragEnd={onDragEnd} onDragCancel={() => setActive(null)}>
+          <div className="zone" id="z-points">
+            <SortableContext items={logins} strategy={verticalListSortingStrategy}>
+              {page.channels.length ? page.channels.map((c, i) => (
+                <SortableRow key={c.login} c={c} i={i} count={page.channels.length} on={page.on} paused={page.paused} days={page.days}
+                  onMove={move} onRemove={(lg) => void save(logins.filter((x) => x !== lg), `${lg} removed from Channel points`)} />
+              )) : <div className="empty">No streamers yet. Add one below and they'll be watched next time they go live.</div>}
+            </SortableContext>
+          </div>
+          <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(.2,.8,.2,1)" }}>
+            {active && page.channels.some((c) => c.login === active) ? (
+              <Row c={page.channels.find((c) => c.login === active)!} i={logins.indexOf(active)} count={logins.length} on={page.on}
+                paused={page.paused} days={page.days} onMove={() => undefined} onRemove={() => undefined} lifted />
+            ) : null}
+          </DragOverlay>
+        </DndContext>
         <AddForm to="points" options={known.map((c) => ({ value: c.login, label: channelNote(c) }))} placeholder="Add a streamer" known={sugg.channels.map((c) => c.login)}
           label="Add a streamer to Channel points"
           onAdd={(name) => save([...logins.filter((x) => x !== name.toLowerCase()), name.toLowerCase()], `${name} added to Channel points`)} />
@@ -119,15 +150,26 @@ export function pointsStatus(c: PointsChannel, on: boolean, paused: boolean): { 
   return { text: "Not seen live yet", live: false };
 }
 
-function Row({ c, i, count, on, paused, days, onMove, onRemove }: {
+type RowProps = {
   c: PointsChannel; i: number; count: number; on: boolean; paused: boolean; days: number;
   onMove: (lg: string, by: number) => void; onRemove: (lg: string) => void;
+};
+
+/** A row that can be dragged to a new place (the up and down buttons do the same from the keyboard). */
+function SortableRow(props: RowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.c.login });
+  return <Row {...props} rootRef={setNodeRef} placeholder={isDragging}
+    rootProps={{ ...attributes, ...listeners, style: { transform: DndCSS.Translate.toString(transform), transition } }} />;
+}
+
+function Row({ c, i, count, on, paused, days, onMove, onRemove, rootRef, rootProps, placeholder, lifted }: RowProps & {
+  rootRef?: (el: HTMLElement | null) => void; rootProps?: HTMLAttributes<HTMLDivElement>; placeholder?: boolean; lifted?: boolean;
 }) {
   const st = pointsStatus(c, on, paused);
   const earned = c.points > 0 ? `${n(c.points)} points${c.chests ? ` · ${c.chests} ${c.chests === 1 ? "chest" : "chests"}` : ""} in ${days} days` : "";
   return (
-    <div className="g fav" data-name={c.login}>
-      <span className="rank">{i + 1}</span><span className="handle" aria-hidden="true" style={{ cursor: "default" }} />
+    <div {...rootProps} ref={rootRef} className={`g fav${placeholder ? " placeholder" : ""}${lifted ? " lifted" : ""}`} data-name={c.login}>
+      <span className="rank">{i + 1}</span><span className="handle" aria-hidden="true"><Icon name="grip" /></span>
       <span className="avatar" aria-hidden="true">{c.login.charAt(0)}</span>
       <div style={{ minWidth: 0 }}><div className="g-t">{c.login}</div>
         <div className="g-s">{st.live ? <span className="on">{st.text}</span> : st.text}{earned && <> · {earned}</>}</div></div>
