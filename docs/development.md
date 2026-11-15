@@ -28,6 +28,32 @@ cd web && npx tsc --noEmit && npm test
 
 After changing the API: `uv run dropwatch openapi --out docs/api/openapi.json`, then `npm run gen:api` in `web/`.
 
+After adding a setting, a notification service or a dependency: `uv run python scripts/gen_docs.py`
+(`tests/test_docs_generated.py` fails until the generated tables in `docs/` match).
+
+## How it fits together
+
+[architecture.md](architecture.md) is the codebase map; [architecture/](architecture/README.md) has the
+diagrams and findings, [adr/](adr/README.md) the decisions, and [guides/](guides/README.md) the operator
+guides.
+
+## Keeping the docs current
+
+Update the docs in the same pull request as the change:
+
+| The change touches... | Update |
+|---|---|
+| a process, task, volume, external system, or how it is built or deployed | `architecture/c4.md` |
+| how data moves or is stored: a table, setting key, cache, outbound call, backup shape, secret | `architecture/data-flows.md` and its key data structures |
+| a journey, its decision points or its error texts | `architecture/user-flows.md` |
+| a pattern followed or departed from | `architecture/reference-architecture.md` |
+| a finding fixed, worsened or added, or a doc that no longer matches the code | `architecture/README.md` (mark a fixed finding "Fixed in #N"; don't delete it) |
+| a choice between real alternatives a later contributor might undo | a new ADR in `adr/` (`Proposed` while the PR is open, `Accepted, YYYY-MM-DD` on merge) |
+| a directory, entry point or source of truth | `architecture.md` |
+| an environment variable, a screen, or what an operator has to do | the page in `guides/` |
+
+If unsure: would the diagram or the page be wrong after merging?
+
 ## Releasing
 
 How Dropwatch reaches people: GitHub Actions builds the image into GitHub's registry (`ghcr.io/kernelpanic-studios/dropwatch`), and Unraid's Community Applications lists it from `unraid/dropwatch.xml` in this repo. Docker Hub is deliberately not used (decided 2026-10-11): one registry, published by the same workflow that runs the tests, with no extra account or token.

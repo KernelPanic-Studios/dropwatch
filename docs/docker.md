@@ -29,9 +29,9 @@ docker run -d --name dropwatch --restart unless-stopped \
 | `/data` | The database (`drops.db`: Twitch sign-in, lists, history), the campaign catalogue and kept images. Owned by `PUID:PGID`. |
 | `PUID` / `PGID` | The user the miner runs as; default `99:100` (Unraid's nobody:users), so the host can read `/data`. |
 | `TZ` | The server's time zone (the weekly summary's default zone and log times). Default UTC. |
-| `DROPWATCH_HOSTS` | Only for a public domain name, such as a reverse proxy's (`dropwatch.example.com`), comma-separated. IP addresses, `localhost`, bare server names (`tower`) and private suffixes (`.local`, `.lan`, `.home`, `.home.arpa`, `.internal`, `.localdomain`) always work. Other names are refused so a web page can't reach Dropwatch through DNS rebinding. `*` turns the check off. |
+| `DROPWATCH_HOSTS` | Only for a public domain name, such as a reverse proxy's (`dropwatch.example.com`), comma-separated. IP addresses, `localhost`, bare server names (`tower`) and private suffixes (`.local`, `.lan`, `.home`, `.home.arpa`, `.internal`, `.localdomain`, `.localhost`) always work. Other names are refused so a web page can't reach Dropwatch through DNS rebinding. `*` turns the check off. |
 | `FORWARDED_ALLOW_IPS` | Behind a reverse proxy, the proxy's address, so the login lockout sees each visitor's own address instead of the proxy's (otherwise five wrong guesses through the proxy lock everyone out). |
-| `--log-opt` | Docker keeps the miner's log (it writes to standard output); this caps it at 3 files of 10 MB. |
+| `--log-opt` | Docker keeps the miner's log (it writes to standard error); this caps it at 3 files of 10 MB. |
 
 ## Health
 

@@ -116,3 +116,5 @@ Dropwatch's Twitch protocol handling is ported from the MIT-licensed
 [NOTICE](NOTICE). Dropwatch itself is released under the [MIT License](LICENSE).
 
 Building it yourself, running the tests and the design notes: [docs/development.md](docs/development.md).
+How it works inside: [docs/architecture.md](docs/architecture.md). Running and configuring it:
+[docs/guides/](docs/guides/README.md).
