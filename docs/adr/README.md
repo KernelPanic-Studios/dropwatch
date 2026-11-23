@@ -20,3 +20,4 @@ one's status names its successor. A record added in a pull request is `Proposed`
 | [0012](0012-simulated-playback-for-watch-credit.md) | Earn watch time by simulating HLS playback | Accepted (retroactive) |
 | [0013](0013-release-through-ghcr-and-community-applications.md) | Publish to GitHub's registry from tags; list through Community Applications | Accepted (retroactive) |
 | [0014](0014-generate-reference-tables-in-the-docs.md) | Generate the docs' reference tables from the code | Proposed |
+| [0015](0015-relative-urls-for-subfolder-installs.md) | Relative URLs, so Dropwatch works in a subfolder without a base-path setting | Proposed |

@@ -68,3 +68,11 @@ test("subfolder snippets strip the folder and send the bare folder to the slash"
   // the placeholder name becomes a bare site in a folder
   expect(proxySnippet("nginx", { ...t, name: "dropwatch.example.com" })).toContain("server_name example.com;");
 });
+
+test("the page asks for the API relative to itself, so a subfolder works (issue #5)", async () => {
+  const seen: string[] = [];
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => { seen.push(String(url)); return new Response("{}", { status: 200 }); }));
+  const { api } = await import("../api/client");
+  await api.get("/state");
+  expect(seen).toEqual(["api/state"]);
+});

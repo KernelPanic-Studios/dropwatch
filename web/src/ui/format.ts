@@ -41,7 +41,7 @@ export function span(min: number): string {
 /** Twitch box art at the size the page draws (the API strips the size; both forms are served). */
 export function boxArt(url: string): string {
   if (!url) return "";
-  if (url.startsWith("/api/img/")) return url; // a kept copy (images.py), already 144x192
+  if (url.startsWith("api/img/")) return url; // a kept copy (images.py), already 144x192
   if (url.includes("{width}x{height}")) return url.replace("{width}x{height}", "144x192");
   if (/-\d+x\d+\.\w+$/.test(url)) return url.replace(/-\d+x\d+(\.\w+)$/, "-144x192$1");
   return url.replace(/(\.\w+)$/, "-144x192$1");

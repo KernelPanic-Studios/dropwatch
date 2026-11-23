@@ -59,7 +59,7 @@ class ImageCache:
 
     def local_url(self, url: str) -> str | None:
         name = self._name(url) if url else None
-        return f"/api/img/{name}" if name and (self._dir / name).is_file() else None
+        return f"api/img/{name}" if name and (self._dir / name).is_file() else None
 
     async def ensure(self, urls: Iterable[str], get: Get | None = None) -> int:
         """Download the ones not kept yet; returns how many were added. A failure is logged and left alone

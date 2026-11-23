@@ -250,7 +250,7 @@ function Backup({ onRestored }: { onRestored: () => void }) {
           <div className="d">Priority, Never, pins, favourite channels, settings and notification channels, in one file.</div>
           <label className="chk"><input type="checkbox" checked={secrets} onChange={(e) => setSecrets(e.target.checked)} />
             Include notification secrets (tokens and webhook URLs)</label></div>
-        <a className="btn" href={secrets ? "/api/backup?secrets=true" : "/api/backup"} download>Save a backup</a>
+        <a className="btn" href={secrets ? "api/backup?secrets=true" : "api/backup"} download>Save a backup</a>
       </div>
       <div className="opt">
         <div><div>Restore from a backup</div>

@@ -44,7 +44,8 @@ export function setUnauthorizedHandler(fn: () => void) {
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`/api${path}`, {
+  // relative, so the page also works in a subfolder behind a proxy (example.com/dropwatch/)
+  const r = await fetch(`api${path}`, {
     method,
     credentials: "same-origin",
     headers: body === undefined ? undefined : { "content-type": "application/json" },

@@ -93,3 +93,72 @@ labels:
 ```
 
 Traefik streams server-sent events without extra settings.
+
+## Subfolder
+
+`https://example.com/dropwatch/`
+
+The proxy has to **strip the folder**: Dropwatch's own links are relative, so it expects requests at `/`.
+The examples below also send `/dropwatch` on to `/dropwatch/` (the page does this too, as a fallback).
+Set `DROPWATCH_HOSTS` to the site's name, here `example.com`.
+
+**A subdomain is the safer choice.** In a subfolder, Dropwatch shares its origin with every other app on
+`example.com`, so a page from any of them can call Dropwatch's API with your session. Use a subfolder only
+when you trust everything else served on that name.
+
+### nginx and SWAG
+
+For SWAG, save the `location` blocks as `/config/nginx/proxy-confs/dropwatch.subfolder.conf`.
+
+```nginx
+location = /dropwatch { return 301 /dropwatch/; }
+location /dropwatch/ {
+    proxy_pass http://SERVER_IP:5800/;   # the trailing slash strips /dropwatch
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_http_version 1.1;
+    proxy_buffering off;
+    proxy_read_timeout 1h;
+}
+```
+
+### Nginx Proxy Manager
+
+Open the proxy host for `example.com` and paste the same two `location` blocks into its **Advanced** tab.
+Use the Advanced tab rather than **Custom Locations**, so that the folder is stripped exactly as above.
+
+### Caddy
+
+```caddy
+example.com {
+    redir /dropwatch /dropwatch/
+    handle_path /dropwatch/* {
+        reverse_proxy SERVER_IP:5800 {
+            flush_interval -1
+        }
+    }
+}
+```
+
+### Traefik
+
+```yaml
+labels:
+  - traefik.enable=true
+  - traefik.http.routers.dropwatch.rule=Host(`example.com`) && PathPrefix(`/dropwatch`)
+  - traefik.http.routers.dropwatch.entrypoints=websecure
+  - traefik.http.routers.dropwatch.tls.certresolver=le
+  - traefik.http.middlewares.dropwatch-strip.stripprefix.prefixes=/dropwatch
+  - traefik.http.routers.dropwatch.middlewares=dropwatch-strip
+  - traefik.http.services.dropwatch.loadbalancer.server.port=5800
+```
+
+## Checking it
+
+Open **Settings › Proxy** through the proxy. It should say **Opened through a reverse proxy** and
+**The proxy is trusted**. If it says the proxy isn't trusted, set `FORWARDED_ALLOW_IPS` to the address it
+shows and restart. The section also has these examples filled in with your own name and folder.
+
+The nginx subdomain and subfolder examples were checked end to end against nginx 1.24. The others follow
+each proxy's documented options.

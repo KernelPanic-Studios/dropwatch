@@ -30,7 +30,7 @@ test("a second click while it's still checking sends nothing", async () => {
   const fetchMock = globalThis.fetch as unknown as ReturnType<typeof vi.fn>;
   const real = fetchMock.getMockImplementation() as (url: string, init?: RequestInit) => Promise<Response>;
   fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
-    if (String(url) === "/api/refresh") { calls.push({ method: "POST", path: "/api/refresh", body: undefined }); await slow; return new Response(null, { status: 204 }); }
+    if (String(url) === "api/refresh") { calls.push({ method: "POST", path: "/api/refresh", body: undefined }); await slow; return new Response(null, { status: 204 }); }
     return real(url, init);
   });
   render(<AppProvider initialMe={ME}><CheckTwitch /></AppProvider>);

@@ -81,10 +81,10 @@ test("the weekly summary's time zone defaults to the server's and saves a chosen
 test("Backup: save links to the file, with secrets only when ticked", async () => {
   setup("backup", { "GET /api/about": ABOUT });
   const save = await screen.findByRole("link", { name: "Save a backup" });
-  expect(save).toHaveAttribute("href", "/api/backup");
+  expect(save).toHaveAttribute("href", "api/backup");
   expect(save).toHaveAttribute("download");
   await userEvent.click(screen.getByRole("checkbox", { name: /Include notification secrets/ }));
-  expect(save).toHaveAttribute("href", "/api/backup?secrets=true");
+  expect(save).toHaveAttribute("href", "api/backup?secrets=true");
 });
 
 test("Backup: restore asks first, then replaces and says what it skipped", async () => {
@@ -180,6 +180,6 @@ test("the weekly summary time says which zone it's in", async () => {
 test("every section already has its summary line before the data arrives", () => {
   setup("mining");
   const links = screen.getAllByRole("link");
-  expect(links).toHaveLength(7);
+  expect(links).toHaveLength(8);
   for (const l of links) expect(l.querySelector("small")).not.toBeNull();
 });

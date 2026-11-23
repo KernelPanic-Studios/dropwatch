@@ -33,6 +33,9 @@ test("index.html links the icons and the manifest lists real files", () => {
     expect(html).toContain(`href="${href}"`);
   }
   const manifest = JSON.parse(read("web/public/manifest.webmanifest").toString());
-  for (const icon of manifest.icons) expect(() => read(`web/public${icon.src}`)).not.toThrow();
+  // relative to the manifest, so they also resolve in a subfolder (issue #5)
+  for (const icon of manifest.icons) expect(() => read(`web/public/${icon.src}`)).not.toThrow();
+  expect(manifest.icons.every((i: { src: string }) => !i.src.startsWith("/"))).toBe(true);
+  expect(manifest.start_url).toBe("./");
   expect(manifest.icons.filter((i: { purpose: string }) => i.purpose === "maskable")).toHaveLength(2);
 });

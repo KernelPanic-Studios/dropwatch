@@ -47,7 +47,7 @@ export function ProxySettings() {
       ))}
       <div className="opt"><div>
         <div>Public names <span className="tt d">DROPWATCH_HOSTS</span></div>
-        <div className="d">{info.hosts.length ? info.hosts.join(", ") : "None listed."} IP addresses and local names like tower or tower.local always work.</div>
+        <div className="d">{info.hosts.length ? `${info.hosts.join(", ")}.` : "None listed."} IP addresses and local names like tower or tower.local always work.</div>
       </div></div>
       <div className="opt"><div>
         <div>Trusted proxies <span className="tt d">FORWARDED_ALLOW_IPS</span></div>
@@ -65,7 +65,7 @@ export function ProxySettings() {
         <button className="btn" type="button" onClick={() => void copy()}><Icon name="copy" />Copy</button>
         <pre className="snippet" aria-label={`${KINDS.find(([k]) => k === kind)![1]} example`}><code>{snippet}</code></pre>
         <div className="d">
-          {folder ? `For a subfolder at ${folder}. ` : "For a subdomain. "}
+          {folder ? `For a subfolder at ${folder}. A subdomain is safer: in a subfolder, every other app on this name shares Dropwatch's origin. ` : "For a subdomain. "}
           {placeholders(target, snippet).length ? `Replace ${placeholders(target, snippet).join(" and ")} with your own.` : "Filled in with this server's name and address."}
           {" "}More in the <a className="link" href="https://github.com/KernelPanic-Studios/dropwatch/blob/main/docs/guides/reverse-proxy.md" target="_blank" rel="noreferrer">reverse proxy guide</a>.
         </div>

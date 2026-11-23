@@ -19,16 +19,17 @@ async def test_direct_visit_shows_no_proxy(tmp_path):
     _, ctx = make_app(tmp_path)
     app = create_app(ctx, hosts=["dropwatch.example.com", " "], trusted=[""])
     got = await proxy_info(app)
-    assert got == {"hosts": ["dropwatch.example.com"], "trusted": [], "host": "192.168.1.10:5800", "host_is_local": True,
-                   "scheme": "http", "client": "192.168.1.10", "forwarded_for": None, "proxy_trusted": None,
-                   "prefix": None}
+    assert got == {"hosts": ["dropwatch.example.com"], "trusted": [], "host": "192.168.1.10:5800",
+                   "host_is_local": True, "scheme": "http", "client": "192.168.1.10", "forwarded_for": None,
+                   "proxy_trusted": None, "prefix": None}
 
 
 async def test_untrusted_proxy_is_spotted_by_its_own_address(tmp_path):
     # the proxy isn't in FORWARDED_ALLOW_IPS: uvicorn leaves the client as the proxy, so every visitor
     # shares its login lockout
     _, ctx = make_app(tmp_path)
-    app = ProxyHeadersMiddleware(create_app(ctx, hosts=["dropwatch.example.com"]), trusted_hosts=["127.0.0.1"])
+    inner = create_app(ctx, hosts=["dropwatch.example.com"])
+    app = ProxyHeadersMiddleware(inner, trusted_hosts=["127.0.0.1"])
     got = await proxy_info(app, host="dropwatch.example.com", peer="172.18.0.5",
                            headers={"x-forwarded-for": "203.0.113.7", "x-forwarded-proto": "https"})
     assert got["client"] == "172.18.0.5" and got["proxy_trusted"] is False and got["scheme"] == "http"
