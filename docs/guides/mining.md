@@ -18,6 +18,10 @@ are mined in this order:
 Dropwatch keeps mining the current campaign unless another one is clearly more urgent (20% less spare
 time), so it does not flip between two close ones. Priority and pins always win at once.
 
+To add a game to Priority or Never, click the **Add a game** box: it lists every game with a campaign
+right now, with its box art and what it is doing, and filters as you type. A game with no campaign can
+still be typed and added, so it is ready when one starts.
+
 **Only mine games in Priority** (Settings › Mining) mines nothing outside Priority. The rest show as
 outside on Overview and are not asked about in Needs you.
 

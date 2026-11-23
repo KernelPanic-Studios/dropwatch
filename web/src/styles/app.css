@@ -305,6 +305,17 @@ svg.i { width: 16px; height: 16px; flex: none; }
 .add-note > svg { width: 15px; height: 15px; flex: none; color: var(--ok-text); }
 .add-note.warn { color: var(--alert-text); }
 .add-note .on { color: var(--ok-text); }
+/* the game picker (issue #4): opens under the box, in the flow so the bucket never clips it */
+.pick { background: var(--surface-2); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.pick-list { list-style: none; margin: 0; padding: 4px; max-height: 296px; overflow-y: auto; display: grid; gap: 2px; }
+.pick-list:empty { display: none; }
+.pick-list li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: center; padding: 6px 8px; border-radius: 7px; cursor: pointer; }
+.pick-list li:hover, .pick-list li.active { background: var(--surface); }
+.pick-list li.active { box-shadow: inset 0 0 0 1px var(--accent); }
+.pick-list li .box { width: 28px; border-radius: 3px; }
+.pick-t { display: grid; min-width: 0; }
+.pick-t > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-empty { padding: 10px 12px; color: var(--muted); font-size: 13px; }
 
 /* ---------- history ---------- */
 .hist-lead { display: flex; align-items: center; gap: 10px; font-size: 15px; }

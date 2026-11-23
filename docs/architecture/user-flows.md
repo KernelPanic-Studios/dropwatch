@@ -163,8 +163,9 @@ flowchart TD
 ```
 
 Divergence check: `put_lists` and `lookup_channel` in `src/dropwatch/api/app.py`, `ListsIn` in
-`src/dropwatch/api/models.py`, `PrioritiesView` in `web/src/views/Priorities.tsx`. Add boxes suggest
-nothing until 3 letters are typed (commit `22bae17`).
+`src/dropwatch/api/models.py`, `PrioritiesView` in `web/src/views/Priorities.tsx`. Channel add boxes suggest
+nothing until 3 letters are typed (commit `22bae17`). The Priority and Never game boxes open a list of
+every game with a campaign on focus, filtered from the first letter typed (issue #4).
 
 ## 8. Channel points list
 
