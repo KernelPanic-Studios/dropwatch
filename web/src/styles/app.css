@@ -354,6 +354,11 @@ svg.i { width: 16px; height: 16px; flex: none; }
 .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .seg button { background: none; border: 0; padding: 6px 12px; cursor: pointer; color: var(--muted); font-size: 13px; }
 .seg button[aria-pressed="true"] { background: var(--surface-2); color: var(--fg); }
+/* Settings › Proxy: the proxy picker wraps on phones, the config scrolls sideways rather than the page */
+.proxy-ex .seg { flex-wrap: wrap; }
+.proxy-ex .snippet, .proxy-ex > .d { grid-column: 1 / -1; }
+.snippet { margin: 0; background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; line-height: 1.5; }
+.tt { font-family: var(--mono); font-size: .95em; }
 .field-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .field { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; width: 280px; max-width: 100%; font-family: var(--mono); font-size: 12px; }
 

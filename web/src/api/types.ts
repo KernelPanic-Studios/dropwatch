@@ -408,6 +408,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/proxy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Proxy
+         * @description Settings › Proxy. Behind a trusted proxy uvicorn has already swapped the proxy's address for the
+         *     visitor's, which is one of the X-Forwarded-For entries; still seeing an address that isn't one of
+         *     them means the proxy isn't in FORWARDED_ALLOW_IPS.
+         */
+        get: operations["proxy_api_proxy_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/refresh": {
         parameters: {
             query?: never;
@@ -1114,6 +1136,31 @@ export interface components {
              * Format: date-time
              */
             since: string;
+        };
+        /**
+         * ProxyOut
+         * @description What Settings › Proxy shows: the deployment's proxy settings (read-only, from the container's
+         *     variables) and what this request looked like when it arrived.
+         */
+        ProxyOut: {
+            /** Client */
+            client: string;
+            /** Forwarded For */
+            forwarded_for: string | null;
+            /** Host */
+            host: string;
+            /** Host Is Local */
+            host_is_local: boolean;
+            /** Hosts */
+            hosts: string[];
+            /** Prefix */
+            prefix: string | null;
+            /** Proxy Trusted */
+            proxy_trusted: boolean | null;
+            /** Scheme */
+            scheme: string;
+            /** Trusted */
+            trusted: string[];
         };
         /** RestoreOut */
         RestoreOut: {
@@ -2053,6 +2100,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    proxy_api_proxy_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProxyOut"];
                 };
             };
         };

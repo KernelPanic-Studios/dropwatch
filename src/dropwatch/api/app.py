@@ -45,6 +45,7 @@ from .models import (
     PointsChannelsIn,
     PointsOut,
     PointsPageOut,
+    ProxyOut,
     RestoreOut,
     SessionOut,
     SessionsOut,
@@ -231,6 +232,21 @@ async def about(request: Request) -> AboutOut:
     runner = ctx.service.runner
     return AboutOut(version=VERSION, commit=build_info(), started_at=ctx.started_at,
                     campaigns_at=runner.campaigns_at if runner else None, server_tz=server_tz())
+
+
+@api.get("/proxy", response_model=ProxyOut)
+async def proxy(request: Request) -> ProxyOut:
+    """Settings › Proxy. Behind a trusted proxy uvicorn has already swapped the proxy's address for the
+    visitor's, which is one of the X-Forwarded-For entries; still seeing an address that isn't one of
+    them means the proxy isn't in FORWARDED_ALLOW_IPS."""
+    host = request.headers.get("host", "")
+    client = request.client.host if request.client else ""
+    xff = request.headers.get("x-forwarded-for")
+    sent = [a.strip() for a in xff.split(",")] if xff else []
+    return ProxyOut(hosts=sorted(request.app.state.hosts), trusted=request.app.state.trusted, host=host,
+                    host_is_local=is_local_name(host_name(host)), scheme=request.url.scheme, client=client,
+                    forwarded_for=xff, proxy_trusted=(client in sent) if sent else None,
+                    prefix=request.headers.get("x-forwarded-prefix"))
 
 
 @api.get("/settings", response_model=SettingsOut)
@@ -554,6 +570,28 @@ async def signout(request: Request) -> None:
 LOCAL_SUFFIXES = (".local", ".home.arpa", ".internal", ".localhost", ".lan", ".home", ".localdomain")
 
 
+def host_name(host: str) -> str:
+    """The name in a Host header, without the port or a trailing dot ("[::1]:5800" -> "::1")."""
+    host = host.strip().lower()
+    if host.startswith("["):  # [v6]:port
+        name = host[1:host.find("]")] if "]" in host else ""
+    else:
+        name = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
+    return name.rstrip(".")
+
+
+def is_local_name(name: str) -> bool:
+    """An IP address, localhost, a bare server name or a private suffix: nothing DNS rebinding can use."""
+    if not name:
+        return False
+    try:
+        ipaddress.ip_address(name)
+        return True
+    except ValueError:
+        pass
+    return "." not in name or name.endswith(LOCAL_SUFFIXES) or name == "localhost"
+
+
 class HostCheck:
     """Answer to an IP address, a local name, or a name listed in DROPWATCH_HOSTS.
 
@@ -571,20 +609,8 @@ class HostCheck:
     def allowed(self, host: str) -> bool:
         if "*" in self.hosts:
             return True
-        host = host.strip().lower()
-        if host.startswith("["):  # [v6]:port
-            name = host[1:host.find("]")] if "]" in host else ""
-        else:
-            name = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
-        name = name.rstrip(".")
-        if not name:
-            return False
-        try:
-            ipaddress.ip_address(name)
-            return True
-        except ValueError:
-            pass
-        return "." not in name or name.endswith(LOCAL_SUFFIXES) or name == "localhost" or name in self.hosts
+        name = host_name(host)
+        return is_local_name(name) or (bool(name) and name in self.hosts)
 
     async def __call__(self, scope, receive, send):
         if scope["type"] in ("http", "websocket"):
@@ -602,10 +628,14 @@ class HostCheck:
         await self.app(scope, receive, send)
 
 
-def create_app(ctx: AppContext, web_dir: Path | None = None, hosts: Iterable[str] = ()) -> FastAPI:
+def create_app(ctx: AppContext, web_dir: Path | None = None, hosts: Iterable[str] = (),
+               trusted: Iterable[str] = ()) -> FastAPI:
     # the schema isn't served: `dropwatch openapi` builds it from app.openapi() for the page's types
     app = FastAPI(title="Dropwatch", version=VERSION, docs_url=None, redoc_url=None, openapi_url=None)
-    app.add_middleware(HostCheck, hosts=list(hosts))
+    hosts = [h.strip() for h in hosts if h.strip()]
+    app.add_middleware(HostCheck, hosts=hosts)
+    app.state.hosts = hosts  # shown read-only in Settings › Proxy
+    app.state.trusted = [t.strip() for t in trusted if t.strip()]
     app.state.ctx = ctx
     if ctx.started_at is None and ctx.store is not None:
         ctx.started_at = ctx.clock()
