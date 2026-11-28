@@ -1,6 +1,6 @@
 # ADR-0015: Relative URLs, so Dropwatch works in a subfolder without a base-path setting
 
-**Status:** Proposed
+**Status:** Accepted, 2026-11-28
 
 ## Context
 

@@ -21,6 +21,12 @@
 **Getting started**
 Open the WebUI, choose a page password, then sign in to Twitch with a one-time code. One Twitch account per container.</Overview>
   <Changes>
+### 0.4.0 (2026-11-28)
+- Priorities: click Add a game under Priority or Never to see every game with a campaign right now, with its box art and what it's doing. Type to filter, or pick one with the arrow keys and Enter.
+- New: Settings › Proxy. It shows whether you came through a reverse proxy, warns when the proxy isn't trusted (and says exactly what to set), and gives example configs for SWAG, Nginx Proxy Manager, Caddy and Traefik filled in with your own address.
+- Dropwatch now also works in a subfolder behind a reverse proxy, such as example.com/dropwatch. A subdomain is still the safer choice.
+- New guide with ready-to-paste reverse proxy configs: docs/guides/reverse-proxy.md.
+
 ### 0.3.0 (2026-11-10)
 - New: Channel points. Add streamers on the new Points tab and Dropwatch watches them whenever they're live, drops or not, so their points and bonus chests pile up while you're away. Twitch counts two streams at once: one goes to drops while there's a campaign to mine, the rest to your list, top first.
 - The Points tab shows who's being watched, who's waiting for a free stream, and what each streamer earned in the last 30 days. Drag streamers to reorder them.
