@@ -25,7 +25,7 @@ async def test_fetches_twitch_images_once_and_names_them_by_url(tmp_path):
     assert await cache.ensure([url]) == 0  # already kept
     assert get.urls == [url]
     local = cache.local_url(url)
-    assert local and local.startswith("/api/img/") and local.endswith(".png")
+    assert local and local.startswith("api/img/") and local.endswith(".png")
     assert cache.file(local.rsplit("/", 1)[1]).read_bytes() == b"\x89PNG..."
 
 
@@ -63,7 +63,7 @@ async def test_history_serves_kept_copies_and_wanted_lists_every_history_image(t
     await ctx.images.ensure([reward, box_art_144(art)])
     (claim,) = (await c.get("/api/history")).json()["claims"]
     local = claim["rewards"][0]["image_url"]
-    assert local.startswith("/api/img/") and claim["box_art_url"].startswith("/api/img/")
+    assert local.startswith("api/img/") and claim["box_art_url"].startswith("api/img/")
     r = await c.get(local)
     assert r.status_code == 200 and r.content == b"IMG" and r.headers["content-type"] == "image/png"
     assert (await c.get("/api/img/..%2Fd.db")).status_code == 404

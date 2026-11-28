@@ -159,7 +159,8 @@ async def serve(store: Store, host: str, port: int) -> int:
     signin = SignInManager(store, bus, provider, on_signed_in)
     images = ImageCache(store.path.parent / "images")
     app = create_app(AppContext(store=store, bus=bus, service=service, signin=signin, images=images),
-                     web_dir=web_dir(), hosts=os.environ.get("DROPWATCH_HOSTS", "").split(","))
+                     web_dir=web_dir(), hosts=os.environ.get("DROPWATCH_HOSTS", "").split(","),
+                     trusted=os.environ.get("FORWARDED_ALLOW_IPS", "").split(","))
     # notifications listen to the same events as the page; started before the miner so none are missed
     notifier = Notifier(store)
     alerts = asyncio.create_task(notifier.run(

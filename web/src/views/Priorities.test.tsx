@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { AppProvider, useApp } from "../store";
 import { mockApi } from "../test/fetch";
 import { campaign, state } from "../test/fixtures";
-import { PrioritiesView, bestMatches } from "./Priorities";
+import { PrioritiesView, bestMatches, gameChoices } from "./Priorities";
 
 const ME = { authenticated: true, setup_required: false };
 function Said() {
@@ -111,4 +111,59 @@ test("Never games keep their box art and say their campaign is running", async (
   expect(row.querySelector(".g-s")).toHaveTextContent(/^Campaign running · ends Tue 3 Nov$/);
   const none = (await screen.findByText("Rise Online")).closest(".g") as HTMLElement;
   expect(none.querySelector(".g-s")).toHaveTextContent("No campaign right now");
+});
+
+test("the game boxes open a list of every game with a campaign, A to Z, and a click adds it (issue #4)", async () => {
+  const calls = setup({ priority: ["Palia"], never: [], favourites: [] });
+  const u = userEvent.setup();
+  const box = await screen.findByRole("combobox", { name: "Add a game to Priority" });
+  await waitFor(() => expect(box).toHaveAttribute("aria-expanded", "false"));
+  await u.click(box);
+  expect(box).toHaveAttribute("aria-expanded", "true");
+  const list = await screen.findByRole("listbox", { name: "Games with a campaign" });
+  // Palia is already in Priority, so it isn't offered
+  await waitFor(() => expect([...list.querySelectorAll("[role=option] .g-t")].map((e) => e.textContent))
+    .toEqual(["007 First Light", "AION 2", "Phasmophobia"]));
+  await u.click(screen.getByRole("option", { name: /AION 2/ }));
+  await waitFor(() => expect(calls.find((c) => c.method === "PUT")?.body).toMatchObject({ priority: ["Palia", "AION 2"] }));
+  expect(box).toHaveAttribute("aria-expanded", "false");
+});
+
+test("typing one letter filters the game list; arrows and Enter pick, Escape closes", async () => {
+  const calls = setup({ priority: [], never: [], favourites: [] });
+  const u = userEvent.setup();
+  const box = await screen.findByRole("combobox", { name: "Add a game to Never" });
+  await u.type(box, "p");
+  await waitFor(() => expect(screen.getAllByRole("option").map((o) => o.querySelector(".g-t")?.textContent))
+    .toEqual(["Palia", "Phasmophobia"]));
+  await u.keyboard("{Escape}");
+  expect(screen.queryByRole("listbox")).toBeNull();
+  await u.keyboard("{ArrowDown}{ArrowDown}");
+  expect(box.getAttribute("aria-activedescendant")).toBe(screen.getByRole("option", { name: /Phasmophobia/ }).id);
+  await u.keyboard("{Enter}");
+  await waitFor(() => expect(calls.find((c) => c.method === "PUT")?.body).toMatchObject({ never: ["Phasmophobia"] }));
+});
+
+test("a game with no campaign can still be typed and added from the picker", async () => {
+  setup({ priority: [], never: [], favourites: [] });
+  const u = userEvent.setup();
+  await u.type(await screen.findByRole("combobox", { name: "Add a game to Priority" }), "Hollow");
+  expect(screen.getByText(/No campaign matches/)).toHaveTextContent("No campaign matches Hollow. Press Add to add it anyway.");
+});
+
+test("channel boxes keep the three-letter minimum and the native list", async () => {
+  setup({ priority: [], never: [], favourites: [] });
+  const u = userEvent.setup();
+  const box = await screen.findByRole("combobox", { name: "Add a favourite channel" });
+  await u.click(box);
+  expect(screen.queryByRole("listbox")).toBeNull();
+  expect(box).toHaveAttribute("list", "opts-fav");
+});
+
+test("gameChoices: everything A to Z when empty, every match best first when typed", () => {
+  const o = (...v: string[]) => v.map((value) => ({ value }));
+  expect(gameChoices(o("b", "C", "a"), " ").map((x) => x.value)).toEqual(["a", "b", "C"]);
+  const many = o(...Array.from({ length: 30 }, (_, i) => `game ${i}`));
+  expect(gameChoices(many, "g")).toHaveLength(30);
+  expect(gameChoices(o("sam_speedruns", "speed"), "spe").map((x) => x.value)).toEqual(["speed", "sam_speedruns"]);
 });

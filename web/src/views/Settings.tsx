@@ -5,6 +5,7 @@ import { useApp } from "../store";
 import { clock, day } from "../ui/format";
 import { applyTheme, savedTheme, type Theme } from "../ui/theme";
 import { DAYS, Notifications, TOGGLES } from "./Notifications";
+import { ProxySettings } from "./Proxy";
 
 /** Settings, reorganised 2026-10-11 (docs/design/settings-mockup.html, package 2): a list of sections on the
  * left, each with a one-line summary of what's set, and one section open at a time. On phones the list is a
@@ -16,6 +17,7 @@ const SECTIONS = [
   { id: "account", name: "Account & security" },
   { id: "appearance", name: "Appearance" },
   { id: "backup", name: "Backup" },
+  { id: "proxy", name: "Proxy" },
   { id: "about", name: "About" },
 ] as const;
 type Section = (typeof SECTIONS)[number]["id"];
@@ -60,6 +62,7 @@ export function SettingsView() {
       sessions ? `${sessions.length} ${sessions.length === 1 ? "browser" : "browsers"}` : ""].filter(Boolean).join(" · "),
     appearance: theme.charAt(0).toUpperCase() + theme.slice(1),
     backup: "Save or restore",
+    proxy: "Reverse proxy setup",
     about: about?.version ?? "",
   };
 
@@ -167,6 +170,7 @@ export function SettingsView() {
           {open === "backup" && (
             <Backup onRestored={() => { void loadSettings(); void loadChans(); void refreshState(); }} />
           )}
+          {open === "proxy" && <Set title="Proxy"><ProxySettings /></Set>}
           {open === "about" && (
             <Set title="About">
               {about ? (
@@ -246,7 +250,7 @@ function Backup({ onRestored }: { onRestored: () => void }) {
           <div className="d">Priority, Never, pins, favourite channels, settings and notification channels, in one file.</div>
           <label className="chk"><input type="checkbox" checked={secrets} onChange={(e) => setSecrets(e.target.checked)} />
             Include notification secrets (tokens and webhook URLs)</label></div>
-        <a className="btn" href={secrets ? "/api/backup?secrets=true" : "/api/backup"} download>Save a backup</a>
+        <a className="btn" href={secrets ? "api/backup?secrets=true" : "api/backup"} download>Save a backup</a>
       </div>
       <div className="opt">
         <div><div>Restore from a backup</div>

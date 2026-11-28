@@ -76,6 +76,10 @@ For a public name such as `dropwatch.example.com`:
    `X-Accel-Buffering: no`, which nginx honours). A buffering proxy delays live updates.
 4. Restart the container.
 
+[reverse-proxy.md](reverse-proxy.md) has ready-to-paste configs for SWAG and nginx, Nginx Proxy Manager,
+Caddy and Traefik, on a subdomain or in a subfolder. **Settings › Proxy** shows what Dropwatch sees from
+the proxy and fills the examples in for you.
+
 ## Variables
 
 | Variable | Where | Default | Notes |

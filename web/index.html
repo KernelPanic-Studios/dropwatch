@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="color-scheme" content="dark light" />
     <title>Dropwatch</title>
+    <!-- in a subfolder (example.com/dropwatch) the links below are relative to the folder, so it needs its
+         trailing slash; at the root the path is already "/" (issue #5) -->
+    <script>if (!location.pathname.endsWith("/")) location.replace(location.pathname + "/" + location.search + location.hash);</script>
     <!-- the cut-stone logo (brand/): the ico for old browsers and tabs, the svg where supported -->
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="icon" type="image/svg+xml" href="/dropwatch-mark.svg" />

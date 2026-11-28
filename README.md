@@ -95,6 +95,9 @@ One Twitch account per container. Don't run another drops miner on the same acco
 | `FORWARDED_ALLOW_IPS` | empty | Behind a reverse proxy: its address, so the login lockout sees each visitor's own address. |
 | `PUID` / `PGID` | `99` / `100` | The user the miner runs as (Unraid's nobody:users). |
 
+Putting it behind SWAG, Nginx Proxy Manager, Caddy or Traefik? [docs/guides/reverse-proxy.md](docs/guides/reverse-proxy.md)
+has example configs for a subdomain or a subfolder, and **Settings › Proxy** in the app checks your setup.
+
 ## Good to know
 
 - **Twitch's rules.** Watching streams automatically to earn drops isn't something Twitch's terms of

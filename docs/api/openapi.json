@@ -1269,6 +1269,87 @@
     "title": "PointsWatchOut",
     "type": "object"
    },
+   "ProxyOut": {
+    "description": "What Settings \u203a Proxy shows: the deployment's proxy settings (read-only, from the container's\nvariables) and what this request looked like when it arrived.",
+    "properties": {
+     "client": {
+      "title": "Client",
+      "type": "string"
+     },
+     "forwarded_for": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Forwarded For"
+     },
+     "host": {
+      "title": "Host",
+      "type": "string"
+     },
+     "host_is_local": {
+      "title": "Host Is Local",
+      "type": "boolean"
+     },
+     "hosts": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Hosts",
+      "type": "array"
+     },
+     "prefix": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Prefix"
+     },
+     "proxy_trusted": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Proxy Trusted"
+     },
+     "scheme": {
+      "title": "Scheme",
+      "type": "string"
+     },
+     "trusted": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Trusted",
+      "type": "array"
+     }
+    },
+    "required": [
+     "hosts",
+     "trusted",
+     "host",
+     "host_is_local",
+     "scheme",
+     "client",
+     "forwarded_for",
+     "proxy_trusted",
+     "prefix"
+    ],
+    "title": "ProxyOut",
+    "type": "object"
+   },
    "RestoreOut": {
     "properties": {
      "skipped": {
@@ -2842,6 +2923,25 @@
      }
     },
     "summary": "Put Points Channels"
+   }
+  },
+  "/api/proxy": {
+   "get": {
+    "description": "Settings \u203a Proxy. Behind a trusted proxy uvicorn has already swapped the proxy's address for the\nvisitor's, which is one of the X-Forwarded-For entries; still seeing an address that isn't one of\nthem means the proxy isn't in FORWARDED_ALLOW_IPS.",
+    "operationId": "proxy_api_proxy_get",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/ProxyOut"
+        }
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Proxy"
    }
   },
   "/api/refresh": {

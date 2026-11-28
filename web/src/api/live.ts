@@ -36,7 +36,7 @@ export function connectLive(o: LiveOptions): () => void {
 
   const connect = () => {
     if (stopped) return;
-    es = open("/api/events");
+    es = open("api/events");  // relative: see api/client.ts
     es.onopen = () => {
       clearTimeout(lostTimer);
       lostTimer = undefined;

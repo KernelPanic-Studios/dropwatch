@@ -266,6 +266,20 @@ class AboutOut(BaseModel):
     server_tz: str  # what "" means for the weekly summary's zone
 
 
+class ProxyOut(BaseModel):
+    """What Settings › Proxy shows: the deployment's proxy settings (read-only, from the container's
+    variables) and what this request looked like when it arrived."""
+    hosts: list[str]  # DROPWATCH_HOSTS
+    trusted: list[str]  # FORWARDED_ALLOW_IPS; empty when unset (uvicorn then trusts only 127.0.0.1)
+    host: str  # this request's Host header
+    host_is_local: bool  # an IP address or local name, answered without being listed
+    scheme: str  # "https" once a trusted proxy says so
+    client: str  # the address Dropwatch sees: the visitor's own behind a trusted proxy, else the proxy's
+    forwarded_for: str | None  # X-Forwarded-For as received: set when a proxy is in front
+    proxy_trusted: bool | None  # None when no proxy header arrived
+    prefix: str | None  # X-Forwarded-Prefix, when the proxy sends one
+
+
 class NotifyFieldOut(BaseModel):
     key: str
     label: str

@@ -17,6 +17,7 @@ the address (`#settings/backup`), so a reload returns to it.
 | **Account & security** | The Twitch account (sign out, or get a sign-in code), the signed-in browsers, and **Sign out of this page**. |
 | **Appearance** | System, light or dark theme. Kept in this browser only (`localStorage`), not on the server. |
 | **Backup** | **Save a backup** (optionally with notification secrets) and **Restore from a backup**. See [storage-and-backups.md](storage-and-backups.md). |
+| **Proxy** | Read-only. Whether this visit came through a reverse proxy and whether Dropwatch trusts it (with the `FORWARDED_ALLOW_IPS` value to set when it doesn't), the current `DROPWATCH_HOSTS` and `FORWARDED_ALLOW_IPS`, and example configs for nginx/SWAG, Nginx Proxy Manager, Caddy and Traefik filled in with this server's name, folder and address. See [reverse-proxy.md](reverse-proxy.md). |
 | **About** | Version, build (branch and commit), when Dropwatch started, when campaigns were last read, and the server's time zone. |
 
 Two settings live on other screens: **Arrange myself** on Overview's Up next (`arrange_up_next`: your pins

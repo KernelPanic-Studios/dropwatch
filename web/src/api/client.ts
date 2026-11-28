@@ -25,6 +25,7 @@ export type NotifyChannel = S["NotifyChannelOut"];
 export type NotifyTest = S["NotifyTestOut"];
 export type PointsPage = S["PointsPageOut"];
 export type PointsChannel = S["PointsChannelOut"];
+export type ProxyInfo = S["ProxyOut"];
 
 /** An HTTP failure with the server's own message (FastAPI's `detail`) when it gave one. */
 export class ApiError extends Error {
@@ -43,7 +44,8 @@ export function setUnauthorizedHandler(fn: () => void) {
 }
 
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const r = await fetch(`/api${path}`, {
+  // relative, so the page also works in a subfolder behind a proxy (example.com/dropwatch/)
+  const r = await fetch(`api${path}`, {
     method,
     credentials: "same-origin",
     headers: body === undefined ? undefined : { "content-type": "application/json" },

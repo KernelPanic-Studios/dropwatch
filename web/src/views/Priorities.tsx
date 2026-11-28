@@ -4,7 +4,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { api, type Campaign, type ChannelSuggestion, type Lists, type State, type Suggestions } from "../api/client";
 import { useLists } from "../lists";
 import { useApp } from "../store";
@@ -165,7 +165,7 @@ export function PrioritiesView() {
         onDragEnd={onDragEnd} onDragCancel={() => { setActive(null); setDraft(null); }}>
       <Bucket title="Priority" count={shown.priority.length} help="Mined first, top to bottom.">
         {zone("priority")}
-        <AddForm to="priority" options={gameOpts} placeholder="Add a game" known={sugg.games} label="Add a game to Priority"
+        <AddForm to="priority" options={gameOpts} placeholder="Add a game" known={sugg.games} label="Add a game to Priority" games={info}
           onAdd={(name) => commit(moved(name, "priority"), `${name} added to Priority`)} />
       </Bucket>
       <Bucket title="Favourite channels" count={shown.favourites.length}
@@ -176,7 +176,7 @@ export function PrioritiesView() {
       </Bucket>
       <Bucket title="Never" count={shown.never.length} help="Never mined, even when nothing else is live.">
         {zone("never")}
-        <AddForm to="never" options={gameOpts} placeholder="Add a game" known={sugg.games} label="Add a game to Never"
+        <AddForm to="never" options={gameOpts} placeholder="Add a game" known={sugg.games} label="Add a game to Never" games={info}
           onAdd={(name) => commit(moved(name, "never"), `${name} added to Never`)} />
       </Bucket>
       <DragOverlay dropAnimation={{ duration: 180, easing: "cubic-bezier(.2,.8,.2,1)" }}>
@@ -293,9 +293,9 @@ const MAX_SUGGESTED = 8;
 /** The add box's suggestions: none until MIN_TYPED letters are typed, then the best few matches. A whole
  * match first, then names starting with it, then a word inside the name starting with it ("speed" finds
  * "sam_speedruns"), then anywhere in it; shorter names first within each. */
-export function bestMatches<T extends { value: string }>(options: T[], typed: string, max = MAX_SUGGESTED): T[] {
+export function bestMatches<T extends { value: string }>(options: T[], typed: string, max = MAX_SUGGESTED, min = MIN_TYPED): T[] {
   const q = typed.trim().toLowerCase();
-  if (q.length < MIN_TYPED) return [];
+  if (q.length < min || !q) return [];
   const rank = (name: string) => {
     const n = name.toLowerCase();
     if (n === q) return 0;
@@ -306,6 +306,13 @@ export function bestMatches<T extends { value: string }>(options: T[], typed: st
   return options.map((o) => [rank(o.value), o] as const).filter(([r]) => r >= 0)
     .sort(([ra, a], [rb, b]) => ra - rb || a.value.length - b.value.length || a.value.localeCompare(b.value))
     .slice(0, max).map(([, o]) => o);
+}
+
+/** The game picker's list: every game with a campaign, A to Z, until something is typed; then every match,
+ * best first (issue #4: the list is short enough to browse, unlike channels). */
+export function gameChoices<T extends { value: string }>(options: T[], typed: string): T[] {
+  if (!typed.trim()) return [...options].sort((a, b) => a.value.localeCompare(b.value, undefined, { sensitivity: "base" }));
+  return bestMatches(options, typed, Infinity, 1);
 }
 
 /** What was typed in a channel box, as a Twitch login: a name ("@Quibble_Bibble") or a channel link
@@ -320,8 +327,10 @@ export function channelLogin(text: string): string | null {
 type Lookup = { login: string; found: boolean; display_name?: string | null; live?: boolean; game?: string | null };
 type Check = { login: string } & ({ status: "checking" } | { status: "done"; got: Lookup } | { status: "error" } | { status: "bad" });
 
-export function AddForm({ to, options, placeholder, known, label, onAdd }: {
+export function AddForm({ to, options, placeholder, known, label, onAdd, games }: {
   to: Zone | "points"; options: { value: string; label?: string }[]; placeholder: string; known: string[]; label: string; onAdd: (name: string) => Promise<void> | void;
+  /** Game boxes: open a browsable list on focus, with each game's box art and status. */
+  games?: Info;
 }) {
   const channels = to === "fav" || to === "points";
   const [v, setV] = useState("");
@@ -346,10 +355,12 @@ export function AddForm({ to, options, placeholder, known, label, onAdd }: {
     setCheck((now) => (now && now.login === login ? c : now));
     return c;
   }
+  const picker = useGamePicker(games ? options : null, v, (name) => void add(name));
   async function add(name: string) {
     setV(""); setUnknown(null); setCheck(null); asking.current = null;
     await onAdd(name);
     input.current?.focus();
+    picker.close();  // focus opens the list; don't cover the row that was just added
   }
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -373,15 +384,18 @@ export function AddForm({ to, options, placeholder, known, label, onAdd }: {
       : null);
   return (
     <form className="add" data-to={to} noValidate onSubmit={submit}>
-      <datalist id={`opts-${to}`}>
+      {!games && <datalist id={`opts-${to}`}>
         {bestMatches(options, v).map((o) => <option key={o.value} value={o.value} label={o.label} />)}
-      </datalist>
+      </datalist>}
       <div className="add-row">
-        <input ref={input} id={`add-${to}`} type="text" list={`opts-${to}`} placeholder={placeholder} aria-label={label} autoComplete="off"
-          value={v} onChange={(e) => { setV(e.target.value); if (check) setCheck(null); setUnknown(null); }}
-          onBlur={channels ? () => void lookUp(v) : undefined} />
+        <input ref={input} id={`add-${to}`} type="text" list={games ? undefined : `opts-${to}`} placeholder={placeholder} aria-label={label} autoComplete="off"
+          value={v} onChange={(e) => { setV(e.target.value); if (check) setCheck(null); setUnknown(null); picker.open(); }}
+          onBlur={channels ? () => void lookUp(v) : games ? picker.close : undefined}
+          {...(games ? picker.inputProps : {})} />
         <button className="btn" type="submit">Add</button>
       </div>
+      {games && picker.shown && <GameList id={picker.listId} choices={picker.choices} active={picker.active} info={games}
+        typed={v} onPick={(name) => void add(name)} />}
       <div className="add-live" aria-live="polite">{note}</div>
       {unknown && (
         <div className="confirm">
@@ -395,5 +409,69 @@ export function AddForm({ to, options, placeholder, known, label, onAdd }: {
         </div>
       )}
     </form>
+  );
+}
+
+/** Open/close and keyboard state for the game picker: an ARIA 1.2 combobox with a listbox popup. Null
+ * options turns it off (channel boxes keep the native datalist and its three-letter minimum). */
+function useGamePicker(options: { value: string }[] | null, typed: string, pick: (name: string) => void) {
+  const listId = useId();
+  const [shown, setShown] = useState(false);
+  const [active, setActive] = useState(-1);
+  const choices = options ? gameChoices(options, typed) : [];
+  useEffect(() => { setActive(-1); }, [typed]);
+  useEffect(() => {
+    if (active >= 0) document.getElementById(`${listId}-${active}`)?.scrollIntoView?.({ block: "nearest" });
+  }, [active, listId]);
+  const open = () => { if (options) setShown(true); };
+  const close = () => { setShown(false); setActive(-1); };
+  function onKeyDown(e: KeyboardEvent<HTMLInputElement>) {
+    const n = choices.length;
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      if (!shown) { setShown(true); setActive(e.key === "ArrowDown" ? 0 : n - 1); return; }
+      if (!n) return;
+      setActive((i) => (e.key === "ArrowDown" ? (i + 1) % n : (i <= 0 ? n - 1 : i - 1)));
+    } else if (e.key === "Enter" && shown && active >= 0 && choices[active]) {
+      e.preventDefault();  // the highlighted game, not whatever is typed
+      pick(choices[active]!.value);
+    } else if (e.key === "Escape" && shown) {
+      e.preventDefault();
+      close();
+    }
+  }
+  return {
+    shown: shown && !!options, choices, active, listId, open, close,
+    inputProps: {
+      role: "combobox", "aria-autocomplete": "list" as const, "aria-expanded": shown, "aria-controls": listId,
+      "aria-activedescendant": shown && active >= 0 ? `${listId}-${active}` : undefined,
+      onFocus: open, onClick: open, onKeyDown,
+    },
+  };
+}
+
+function GameList({ id, choices, active, info, typed, onPick }: {
+  id: string; choices: { value: string }[]; active: number; info: Info; typed: string; onPick: (name: string) => void;
+}) {
+  const empty = !choices.length && (typed.trim()
+    ? <>No campaign matches <b>{typed.trim()}</b>. Press Add to add it anyway.</>
+    : <>No games with a campaign right now. Type a name to add it so it's ready when one starts.</>);
+  return (
+    <div className="pick">
+      <ul className="pick-list" id={id} role="listbox" aria-label="Games with a campaign">
+        {choices.map((o, i) => {
+          const inf = info.get(o.value);
+          return (
+            <li key={o.value} id={`${id}-${i}`} role="option" aria-selected={i === active} className={i === active ? "active" : undefined}
+              onMouseDown={(e) => e.preventDefault()} onClick={() => onPick(o.value)}>
+              {inf?.art ? <img className="box" src={inf.art} alt="" /> : <span className="box ph" aria-hidden="true" />}
+              <span className="pick-t"><span className="g-t">{o.value}</span>
+                <span className={`g-s${inf?.warn ? " warn" : ""}`}>{inf?.text ?? "Campaign running"}</span></span>
+            </li>
+          );
+        })}
+      </ul>
+      {empty && <div className="pick-empty">{empty}</div>}
+    </div>
   );
 }
